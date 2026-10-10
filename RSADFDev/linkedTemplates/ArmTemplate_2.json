@@ -1,0 +1,1552 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "RSADFDev"
+		},
+		"LS_HP_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'LS_HP'"
+		},
+		"LS_SQL_Azure_Platform_Config_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'LS_SQL_Azure_Platform_Config'",
+			"defaultValue": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=sql-dev-cssbiplatform-torus-wus2.database.windows.net;Initial Catalog=db-platform-config"
+		},
+		"LS_HP_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "LAPTOP-4S918E2B"
+		},
+		"LS_HP_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "mydb"
+		},
+		"LS_HP_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "rohit"
+		},
+		"LS_SQL_Azure_Platform_Config_properties_typeProperties_servicePrincipalId": {
+			"type": "string",
+			"defaultValue": "8f485f1d-2ea8-4284-82fd-e2f1b96b1f48"
+		},
+		"LS_SQL_Azure_Platform_Config_properties_typeProperties_tenant": {
+			"type": "string",
+			"defaultValue": "cdc5aeea-15c5-4db6-b079-fcadd2505dc2"
+		},
+		"adf-ws-censbitorusuatadls04_properties_privateLinkResourceId": {
+			"type": "string",
+			"defaultValue": "/subscriptions/863eb5be-215b-4075-82db-915a8e759098/resourceGroups/censbitorusuatrg03/providers/Microsoft.Storage/storageAccounts/censbitorusuatadls04"
+		},
+		"adf-ws-censbitorusuatadls04_properties_groupId": {
+			"type": "string",
+			"defaultValue": "dfs"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_HP')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "SqlServer",
+				"typeProperties": {
+					"server": "[parameters('LS_HP_properties_typeProperties_server')]",
+					"database": "[parameters('LS_HP_properties_typeProperties_database')]",
+					"encrypt": "mandatory",
+					"trustServerCertificate": true,
+					"authenticationType": "SQL",
+					"userName": "[parameters('LS_HP_properties_typeProperties_userName')]",
+					"password": {
+						"type": "SecureString",
+						"value": "[parameters('LS_HP_password')]"
+					}
+				},
+				"connectVia": {
+					"referenceName": "HP-integation-runtime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_SQL_Azure_Platform_Config')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "Platform Config database",
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"connectionString": "[parameters('LS_SQL_Azure_Platform_Config_connectionString')]",
+					"servicePrincipalId": "[parameters('LS_SQL_Azure_Platform_Config_properties_typeProperties_servicePrincipalId')]",
+					"servicePrincipalKey": {
+						"type": "AzureKeyVaultSecret",
+						"store": {
+							"referenceName": "LS_KV_CSSBIPlatform",
+							"type": "LinkedServiceReference"
+						},
+						"secretName": "SAnDP-Torus-SNI-Int-Cert"
+					},
+					"tenant": "[parameters('LS_SQL_Azure_Platform_Config_properties_typeProperties_tenant')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/default/adf-ws-censbitorusuatadls04')]",
+			"type": "Microsoft.DataFactory/factories/managedVirtualNetworks/managedPrivateEndpoints",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"privateLinkResourceId": "[parameters('adf-ws-censbitorusuatadls04_properties_privateLinkResourceId')]",
+				"groupId": "[parameters('adf-ws-censbitorusuatadls04_properties_groupId')]"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/3 Archive the file after load')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy data from Gen2 to Azure SQL",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "ParquetSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"wildcardFolderPath": {
+										"value": "@concat(pipeline().parameters.srcADLSDirectory,'/',pipeline().parameters.srcADLSTgtFileName)",
+										"type": "Expression"
+									},
+									"wildcardFileName": "*.parquet",
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "ParquetReadSettings"
+								}
+							},
+							"sink": {
+								"type": "AzureSqlSink",
+								"writeBehavior": "insert",
+								"sqlWriterUseTableLock": false,
+								"tableOption": "autoCreate",
+								"disableMetricsCollection": false
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_Read_Parequet_Folders",
+								"type": "DatasetReference",
+								"parameters": {
+									"ServerName": {
+										"value": "@pipeline().parameters.srcADLSServerName",
+										"type": "Expression"
+									},
+									"ContainerName": {
+										"value": "@pipeline().parameters.srcADLSContainerName",
+										"type": "Expression"
+									},
+									"Directory": {
+										"value": "@pipeline().parameters.srcADLSDirectory",
+										"type": "Expression"
+									},
+									"TgtFileName": {
+										"value": "@pipeline().parameters.srcADLSTgtFileName",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_AzureSQL_MI",
+								"type": "DatasetReference",
+								"parameters": {
+									"ServerName": {
+										"value": "@pipeline().parameters.tgtSQLServer",
+										"type": "Expression"
+									},
+									"DBName": {
+										"value": "@pipeline().parameters.tgtSQLDatabaseName",
+										"type": "Expression"
+									},
+									"TableSchema": {
+										"value": "@pipeline().parameters.tgtSQLSchema",
+										"type": "Expression"
+									},
+									"TableName": {
+										"value": "@pipeline().parameters.tgtSQLTable",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					},
+					{
+						"name": "Copy data from Archive loaded data into adls",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "ParquetSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"wildcardFolderPath": {
+										"value": "@concat(pipeline().parameters.srcADLSDirectory,'/',pipeline().parameters.srcADLSTgtFileName)",
+										"type": "Expression"
+									},
+									"wildcardFileName": "*.parquet",
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "ParquetReadSettings"
+								}
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings",
+									"copyBehavior": "PreserveHierarchy"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_Read_Parequet_Folders",
+								"type": "DatasetReference",
+								"parameters": {
+									"ServerName": {
+										"value": "@pipeline().parameters.srcADLSServerName",
+										"type": "Expression"
+									},
+									"ContainerName": {
+										"value": "@pipeline().parameters.srcADLSContainerName",
+										"type": "Expression"
+									},
+									"Directory": {
+										"value": "@pipeline().parameters.srcADLSDirectory",
+										"type": "Expression"
+									},
+									"TgtFileName": {
+										"value": "@pipeline().parameters.srcADLSTgtFileName",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_Read_Parequet_Folders",
+								"type": "DatasetReference",
+								"parameters": {
+									"ServerName": {
+										"value": "@pipeline().parameters.srcADLSServerName",
+										"type": "Expression"
+									},
+									"ContainerName": {
+										"value": "@pipeline().parameters.srcADLSContainerName",
+										"type": "Expression"
+									},
+									"Directory": {
+										"value": "@pipeline().parameters.ADLSarchiveDirectory",
+										"type": "Expression"
+									},
+									"TgtFileName": {
+										"value": "@pipeline().parameters.srcADLSTgtFileName",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					},
+					{
+						"name": "Delete1",
+						"type": "Delete",
+						"dependsOn": [
+							{
+								"activity": "Copy data from Gen2 to Azure SQL",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							},
+							{
+								"activity": "Copy data from Archive loaded data into adls",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DS_Read_Parequet_Folders",
+								"type": "DatasetReference",
+								"parameters": {
+									"ServerName": {
+										"value": "@pipeline().parameters.srcADLSServerName",
+										"type": "Expression"
+									},
+									"ContainerName": {
+										"value": "@pipeline().parameters.srcADLSContainerName",
+										"type": "Expression"
+									},
+									"Directory": {
+										"value": "@pipeline().parameters.srcADLSDirectory",
+										"type": "Expression"
+									},
+									"TgtFileName": {
+										"value": "@pipeline().parameters.srcADLSTgtFileName",
+										"type": "Expression"
+									}
+								}
+							},
+							"enableLogging": false,
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"srcADLSServerName": {
+						"type": "string",
+						"defaultValue": "https://rsdev.dfs.core.windows.net"
+					},
+					"srcADLSContainerName": {
+						"type": "string",
+						"defaultValue": "bronze"
+					},
+					"srcADLSDirectory": {
+						"type": "string",
+						"defaultValue": "landing/stage/Metadata"
+					},
+					"srcADLSTgtFileName": {
+						"type": "string",
+						"defaultValue": "Consumer"
+					},
+					"tgtSQLServer": {
+						"type": "string",
+						"defaultValue": "rsmdev.database.windows.net"
+					},
+					"tgtSQLDatabaseName": {
+						"type": "string",
+						"defaultValue": "sqldb"
+					},
+					"tgtSQLSchema": {
+						"type": "string",
+						"defaultValue": "tbl"
+					},
+					"tgtSQLTable": {
+						"type": "string",
+						"defaultValue": "Consumer"
+					},
+					"ADLSarchiveDirectory": {
+						"type": "string",
+						"defaultValue": "archive/stage/Metadata"
+					}
+				},
+				"folder": {
+					"name": "RealtimeScenario"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-09-25T03:43:12Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/4 Copy Data as per file size')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Get Metadata1",
+						"type": "GetMetadata",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DS_read_csv_MI",
+								"type": "DatasetReference",
+								"parameters": {
+									"Servername": {
+										"value": "@pipeline().parameters.servername",
+										"type": "Expression"
+									},
+									"ContainerName": {
+										"value": "@pipeline().parameters.ContainerName",
+										"type": "Expression"
+									},
+									"Directory": {
+										"value": "@pipeline().parameters.directory",
+										"type": "Expression"
+									},
+									"FileName": " "
+								}
+							},
+							"fieldList": [
+								"childItems"
+							],
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							},
+							"formatSettings": {
+								"type": "DelimitedTextReadSettings"
+							}
+						}
+					},
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Get Metadata1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Get Metadata1').output.childItems",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "Get Metadata2",
+									"type": "GetMetadata",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"dataset": {
+											"referenceName": "DS_read_csv_MI",
+											"type": "DatasetReference",
+											"parameters": {
+												"Servername": {
+													"value": "@pipeline().parameters.servername",
+													"type": "Expression"
+												},
+												"ContainerName": {
+													"value": "@pipeline().parameters.ContainerName",
+													"type": "Expression"
+												},
+												"Directory": {
+													"value": "@pipeline().parameters.directory",
+													"type": "Expression"
+												},
+												"FileName": {
+													"value": "@item().name",
+													"type": "Expression"
+												}
+											}
+										},
+										"fieldList": [
+											"itemName",
+											"size"
+										],
+										"storeSettings": {
+											"type": "AzureBlobFSReadSettings",
+											"recursive": true,
+											"enablePartitionDiscovery": false
+										},
+										"formatSettings": {
+											"type": "DelimitedTextReadSettings"
+										}
+									}
+								},
+								{
+									"name": "Copy data1",
+									"type": "Copy",
+									"dependsOn": [
+										{
+											"activity": "Get Metadata2",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "DelimitedTextSource",
+											"storeSettings": {
+												"type": "AzureBlobFSReadSettings",
+												"recursive": true,
+												"enablePartitionDiscovery": false
+											},
+											"formatSettings": {
+												"type": "DelimitedTextReadSettings"
+											}
+										},
+										"sink": {
+											"type": "DelimitedTextSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "DelimitedTextWriteSettings",
+												"quoteAllText": true,
+												"fileExtension": ".txt"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "DS_read_csv_MI",
+											"type": "DatasetReference",
+											"parameters": {
+												"Servername": {
+													"value": "@pipeline().parameters.servername",
+													"type": "Expression"
+												},
+												"ContainerName": {
+													"value": "@pipeline().parameters.ContainerName",
+													"type": "Expression"
+												},
+												"Directory": {
+													"value": "@pipeline().parameters.directory",
+													"type": "Expression"
+												},
+												"FileName": {
+													"value": "@item().name",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DS_read_csv_MI",
+											"type": "DatasetReference",
+											"parameters": {
+												"Servername": {
+													"value": "@pipeline().parameters.servername",
+													"type": "Expression"
+												},
+												"ContainerName": {
+													"value": "@pipeline().parameters.ContainerName",
+													"type": "Expression"
+												},
+												"Directory": {
+													"value": "@concat(pipeline().parameters.directory,'/',if( less(activity('Get Metadata2').output.size, 1024), '1KB', if( less(activity('Get Metadata2').output.size, 2048), '2KB', 'MoreThan2KB' ) ))",
+													"type": "Expression"
+												},
+												"FileName": {
+													"value": "@item().name",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"servername": {
+						"type": "string",
+						"defaultValue": "https://rsdev.dfs.core.windows.net"
+					},
+					"ContainerName": {
+						"type": "string",
+						"defaultValue": "bronze"
+					},
+					"directory": {
+						"type": "string",
+						"defaultValue": "landing/stage/raw/csvfiles"
+					}
+				},
+				"folder": {
+					"name": "RealtimeScenario"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-09-25T03:43:12Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLSDataSet_csv')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADLSGen2_Using_AK",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"AcountName": {
+							"value": "@dataset().ADLSServerfull",
+							"type": "Expression"
+						},
+						"AccountKeySecret": {
+							"value": "@dataset().ADLSSecret",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"FileSystem": {
+						"type": "string"
+					},
+					"ADLSSecret": {
+						"type": "string"
+					},
+					"ADLSServerfull": {
+						"type": "string"
+					},
+					"ADLSDirectory": {
+						"type": "string"
+					},
+					"Filename": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().Filename",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().ADLSDirectory",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().FileSystem",
+							"type": "Expression"
+						}
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLSV2_CSV_SPN')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADLS_Gen2_SPN",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"url": {
+							"value": "@dataset().url",
+							"type": "Expression"
+						},
+						"tenant": {
+							"value": "@dataset().tenant",
+							"type": "Expression"
+						},
+						"servicePrincipalId": {
+							"value": "@dataset().servicePrincipalId",
+							"type": "Expression"
+						},
+						"secretName": {
+							"value": "@dataset().secretName",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"url": {
+						"type": "string"
+					},
+					"servicePrincipalId": {
+						"type": "string"
+					},
+					"secretName": {
+						"type": "string"
+					},
+					"tenant": {
+						"type": "string"
+					},
+					"Container": {
+						"type": "string"
+					},
+					"Directory": {
+						"type": "string"
+					},
+					"FileName": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "Generic Datasets"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().FileName",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().Directory",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().Container",
+							"type": "Expression"
+						}
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLSV2_Parquet')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADLS_CSSBIPlatform",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"StorageAccountURL": {
+							"value": "@dataset().StorageAccountURL",
+							"type": "Expression"
+						},
+						"StorageKeySecret": {
+							"value": "@dataset().StorageKeySecret",
+							"type": "Expression"
+						},
+						"StorageAccountSpnId": {
+							"value": "@dataset().StorageAccountSpnId",
+							"type": "Expression"
+						},
+						"StorageAccountTenantId": {
+							"value": "@dataset().StorageAccountTenantId",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"Container": {
+						"type": "string"
+					},
+					"Directory": {
+						"type": "string"
+					},
+					"FileName": {
+						"type": "string"
+					},
+					"StorageAccountURL": {
+						"type": "string"
+					},
+					"StorageKeySecret": {
+						"type": "string"
+					},
+					"StorageAccountSpnId": {
+						"type": "string"
+					},
+					"StorageAccountTenantId": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "Generic Datasets"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().FileName",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@concat(dataset().Directory, '/', dataset().FileName)",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@if(empty(dataset().Container),\n  'cssbifs',\n  dataset().Container\n)",
+							"type": "Expression"
+						}
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLSV2_Parquet_Folder')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADLS_CSSBIPlatform",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"StorageAccountURL": {
+							"value": "@dataset().StorageAccountURL",
+							"type": "Expression"
+						},
+						"StorageKeySecret": {
+							"value": "@dataset().StorageKeySecret",
+							"type": "Expression"
+						},
+						"StorageAccountSpnId": {
+							"value": "@dataset().StorageAccountSpnId",
+							"type": "Expression"
+						},
+						"StorageAccountTenantId": {
+							"value": "@dataset().StorageAccountTenantId",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"Container": {
+						"type": "string"
+					},
+					"Directory": {
+						"type": "string"
+					},
+					"StorageAccountURL": {
+						"type": "string"
+					},
+					"StorageKeySecret": {
+						"type": "string"
+					},
+					"StorageAccountSpnId": {
+						"type": "string"
+					},
+					"StorageAccountTenantId": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "Generic Datasets"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@dataset().Directory",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@if(empty(dataset().Container),\n  'cssbifs',\n  dataset().Container\n)",
+							"type": "Expression"
+						}
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLSV2_Parquet_SPN')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADLS_Gen2_SPN",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"url": {
+							"value": "@dataset().url",
+							"type": "Expression"
+						},
+						"tenant": {
+							"value": "@dataset().tenant",
+							"type": "Expression"
+						},
+						"servicePrincipalId": {
+							"value": "@dataset().servicePrincipalId",
+							"type": "Expression"
+						},
+						"secretName": {
+							"value": "@dataset().secretName",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"url": {
+						"type": "string"
+					},
+					"servicePrincipalId": {
+						"type": "string"
+					},
+					"secretName": {
+						"type": "string"
+					},
+					"tenant": {
+						"type": "string"
+					},
+					"Container": {
+						"type": "string"
+					},
+					"Directory": {
+						"type": "string"
+					},
+					"FileName": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "Generic Datasets"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().FileName",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().Directory",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().Container",
+							"type": "Expression"
+						}
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLSV2_Parquet_folders')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADLS_CSSBIPlatform",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"StorageAccountURL": {
+							"value": "@dataset().StorageAccountURL",
+							"type": "Expression"
+						},
+						"StorageKeySecret": {
+							"value": "@dataset().StorageKeySecret",
+							"type": "Expression"
+						},
+						"StorageAccountSpnId": {
+							"value": "@dataset().StorageAccountSpnId",
+							"type": "Expression"
+						},
+						"StorageAccountTenantId": {
+							"value": "@dataset().StorageAccountTenantId",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"Container": {
+						"type": "string"
+					},
+					"Directory": {
+						"type": "string"
+					},
+					"FileName": {
+						"type": "string"
+					},
+					"StorageAccountURL": {
+						"type": "string"
+					},
+					"StorageKeySecret": {
+						"type": "string"
+					},
+					"StorageAccountSpnId": {
+						"type": "string"
+					},
+					"StorageAccountTenantId": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "Generic Datasets"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@concat(dataset().Directory, '/', dataset().FileName)",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@if(empty(dataset().Container),\n  'cssbifs',\n  dataset().Container\n)",
+							"type": "Expression"
+						}
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLSV2_TSV_SPN')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADLS_Gen2_SPN",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"url": {
+							"value": "@dataset().url",
+							"type": "Expression"
+						},
+						"tenant": {
+							"value": "@dataset().tenant",
+							"type": "Expression"
+						},
+						"servicePrincipalId": {
+							"value": "@dataset().servicePrincipalId",
+							"type": "Expression"
+						},
+						"secretName": {
+							"value": "@dataset().secretName",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"url": {
+						"type": "string"
+					},
+					"servicePrincipalId": {
+						"type": "string"
+					},
+					"secretName": {
+						"type": "string"
+					},
+					"tenant": {
+						"type": "string"
+					},
+					"Container": {
+						"type": "string"
+					},
+					"Directory": {
+						"type": "string"
+					},
+					"FileName": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "Generic Datasets"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().FileName",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().Directory",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().Container",
+							"type": "Expression"
+						}
+					},
+					"columnDelimiter": "\t",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_AzureDataExplorer')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_AzureDataExplorer",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"KustoServer": {
+							"value": "@dataset().Kustoserver",
+							"type": "Expression"
+						},
+						"KustoDatabase": {
+							"value": "@dataset().KustoDatabase",
+							"type": "Expression"
+						},
+						"ServicePrincipalId": {
+							"value": "@dataset().ServicePrincipalId",
+							"type": "Expression"
+						},
+						"ServicePrincipalSecret": {
+							"value": "@dataset().ServicePrincipalSecret",
+							"type": "Expression"
+						},
+						"tenantId": {
+							"value": "@dataset().TenantId",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"Kustoserver": {
+						"type": "string"
+					},
+					"KustoDatabase": {
+						"type": "string"
+					},
+					"ServicePrincipalId": {
+						"type": "string"
+					},
+					"ServicePrincipalSecret": {
+						"type": "string"
+					},
+					"TenantId": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "Generic Datasets"
+				},
+				"annotations": [],
+				"type": "AzureDataExplorerTable",
+				"schema": [],
+				"typeProperties": {
+					"table": "kusto"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_AzureSQL')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSQLDatabase_Using_UIDPWD",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"ServerName": {
+							"value": "@dataset().servername",
+							"type": "Expression"
+						},
+						"DatabaseName": {
+							"value": "@dataset().databasename",
+							"type": "Expression"
+						},
+						"username": {
+							"value": "@dataset().username",
+							"type": "Expression"
+						},
+						"PasswordSecret": {
+							"value": "@dataset().PasswordSecret",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"servername": {
+						"type": "string"
+					},
+					"databasename": {
+						"type": "string"
+					},
+					"username": {
+						"type": "string"
+					},
+					"PasswordSecret": {
+						"type": "string"
+					},
+					"tableschema": {
+						"type": "string"
+					},
+					"table_name": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().tableschema",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().table_name",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_AzureSQL_SPN')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSQL_SPN",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"server": {
+							"value": "@dataset().server",
+							"type": "Expression"
+						},
+						"databasename": {
+							"value": "@dataset().databasename",
+							"type": "Expression"
+						},
+						"Tenantid": {
+							"value": "@dataset().Tenantid",
+							"type": "Expression"
+						},
+						"SPNID": {
+							"value": "@dataset().SPNID",
+							"type": "Expression"
+						},
+						"SPN_Secret": {
+							"value": "@dataset().SPN_Secret",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"server": {
+						"type": "string"
+					},
+					"databasename": {
+						"type": "string"
+					},
+					"Tenantid": {
+						"type": "string"
+					},
+					"SPNID": {
+						"type": "string"
+					},
+					"SPN_Secret": {
+						"type": "string"
+					},
+					"tbl_schema": {
+						"type": "string"
+					},
+					"tbl_name": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().tbl_schema",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().tbl_name",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_CSVDataset')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADLSGen2_Using_AK",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"AcountName": "https://rsdev.dfs.core.windows.net",
+						"AccountKeySecret": "ADLSSecret"
+					}
+				},
+				"parameters": {
+					"containerName": {
+						"type": "string"
+					},
+					"directory": {
+						"type": "string"
+					},
+					"filename": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().filename",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().directory",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().containerName",
+							"type": "Expression"
+						}
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_HP_ssms')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_HP",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "Users"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_HP')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_Metadata')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_SQL_Azure_Platform_Config",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Sunil"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_SQL_Azure_Platform_Config')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_SQL_OrchConfig')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_SQL_Azure_Platform_Config",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Platform Config"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "metadata",
+					"table": "tbl_DatasetFilterControl"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_SQL_Azure_Platform_Config')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_Write_Parquet')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADLSGen2_Using_AK",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"AcountName": {
+							"value": "@dataset().ServerName",
+							"type": "Expression"
+						},
+						"AccountKeySecret": {
+							"value": "@dataset().Secret",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"ServerName": {
+						"type": "string"
+					},
+					"Secret": {
+						"type": "string"
+					},
+					"ContainerName": {
+						"type": "string"
+					},
+					"Directory": {
+						"type": "string"
+					},
+					"FileName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@concat(dataset().Directory,'/' ,dataset().FileName)",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().ContainerName",
+							"type": "Expression"
+						}
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": []
+		}
+	]
+}

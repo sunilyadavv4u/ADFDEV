@@ -1,0 +1,403 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "RSADFDev"
+		},
+		"LS_FS_ASD_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'LS_FS_ASD'"
+		},
+		"LS_HP_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'LS_HP'"
+		},
+		"LS_SQL_Azure_Platform_Config_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'LS_SQL_Azure_Platform_Config'",
+			"defaultValue": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=sql-dev-cssbiplatform-torus-wus2.database.windows.net;Initial Catalog=db-platform-config"
+		},
+		"LS_ADLSGen2_SPN_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "@{linkedService().ServerName}"
+		},
+		"LS_ADLSGen2_SPN_properties_typeProperties_tenant": {
+			"type": "string",
+			"defaultValue": "@{linkedService().TenantId}"
+		},
+		"LS_ADLSGen2_SPN_properties_typeProperties_servicePrincipalId": {
+			"type": "string",
+			"defaultValue": "@{linkedService().ServicePrincipalID}"
+		},
+		"LS_ADLSGen2_Using_AK_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "@{linkedService().AcountName}"
+		},
+		"LS_ADLSGen2_using_MI_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "@{linkedService().serverfullpath}"
+		},
+		"LS_ADLS_CSSBIPlatform_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "@{linkedService().StorageAccountURL}"
+		},
+		"LS_ADLS_CSSBIPlatform_properties_typeProperties_tenant": {
+			"type": "string",
+			"defaultValue": "@{linkedService().StorageAccountTenantId}"
+		},
+		"LS_ADLS_CSSBIPlatform_properties_typeProperties_servicePrincipalId": {
+			"type": "string",
+			"defaultValue": "@{linkedService().StorageAccountSpnId}"
+		},
+		"LS_ADLS_Gen2_SPN_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "@{linkedService().url}"
+		},
+		"LS_ADLS_Gen2_SPN_properties_typeProperties_tenant": {
+			"type": "string",
+			"defaultValue": "@{linkedService().tenant}"
+		},
+		"LS_ADLS_Gen2_SPN_properties_typeProperties_servicePrincipalId": {
+			"type": "string",
+			"defaultValue": "@{linkedService().servicePrincipalId}"
+		},
+		"LS_AccountKV_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://RSAKVDev.vault.azure.net/"
+		},
+		"LS_AzureDataExplorer_properties_typeProperties_endpoint": {
+			"type": "string",
+			"defaultValue": "@linkedService().KustoServer"
+		},
+		"LS_AzureDataExplorer_properties_typeProperties_tenant": {
+			"type": "string",
+			"defaultValue": "@linkedService().tenantId"
+		},
+		"LS_AzureDataExplorer_properties_typeProperties_servicePrincipalId": {
+			"type": "string",
+			"defaultValue": "@linkedService().ServicePrincipalId"
+		},
+		"LS_AzureDataExplorer_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "@linkedService().KustoDatabase"
+		},
+		"LS_AzureSQLDatabase_Using_UIDPWD_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "@{linkedService().ServerName}"
+		},
+		"LS_AzureSQLDatabase_Using_UIDPWD_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "@{linkedService().DatabaseName}"
+		},
+		"LS_AzureSQLDatabase_Using_UIDPWD_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "@{linkedService().username}"
+		},
+		"LS_AzureSQL_SPN_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "@{linkedService().server}"
+		},
+		"LS_AzureSQL_SPN_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "@{linkedService().databasename}"
+		},
+		"LS_AzureSQL_SPN_properties_typeProperties_servicePrincipalId": {
+			"type": "string",
+			"defaultValue": "@{linkedService().SPNID}"
+		},
+		"LS_AzureSQL_SPN_properties_typeProperties_tenant": {
+			"type": "string",
+			"defaultValue": "@{linkedService().Tenantid}"
+		},
+		"LS_AzureSQL_Using_MI_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "@{linkedService().ServerName}"
+		},
+		"LS_AzureSQL_Using_MI_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "@{linkedService().DatabaseName}"
+		},
+		"LS_DBX_CSSBIPlatform_properties_typeProperties_existingClusterId": {
+			"type": "string",
+			"defaultValue": "@linkedService().ClusterId"
+		},
+		"LS_FS_ASD_properties_typeProperties_host": {
+			"type": "string",
+			"defaultValue": "\\\\LAPTOP-0K5EJVI4\\NOTES"
+		},
+		"LS_FS_ASD_properties_typeProperties_userId": {
+			"type": "string",
+			"defaultValue": "laptop-0k5ejvi4\\mayur"
+		},
+		"LS_HP_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "LAPTOP-4S918E2B"
+		},
+		"LS_HP_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "mydb"
+		},
+		"LS_HP_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "rohit"
+		},
+		"LS_KV_CSSBIPlatform_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://kv-dev-cssbit-wus2.vault.azure.net/"
+		},
+		"LS_SQL_Azure_Platform_Config_properties_typeProperties_servicePrincipalId": {
+			"type": "string",
+			"defaultValue": "8f485f1d-2ea8-4284-82fd-e2f1b96b1f48"
+		},
+		"LS_SQL_Azure_Platform_Config_properties_typeProperties_tenant": {
+			"type": "string",
+			"defaultValue": "cdc5aeea-15c5-4db6-b079-fcadd2505dc2"
+		},
+		"LS_Synapse_CSSBIPlatofrm_properties_typeProperties_endpoint": {
+			"type": "string",
+			"defaultValue": "@{linkedService().WorkspaceURL}"
+		},
+		"adf-ws-censbitorusuatadls04_properties_privateLinkResourceId": {
+			"type": "string",
+			"defaultValue": "/subscriptions/863eb5be-215b-4075-82db-915a8e759098/resourceGroups/censbitorusuatrg03/providers/Microsoft.Storage/storageAccounts/censbitorusuatadls04"
+		},
+		"adf-ws-censbitorusuatadls04_properties_groupId": {
+			"type": "string",
+			"defaultValue": "dfs"
+		},
+		"containerUri": {
+			"type": "string",
+			"metadata": "URI to storage account containing linked ARM templates"
+		},
+		"containerSasToken": {
+			"type": "string",
+			"metadata": "Sas token to storage account containing linked ARM templates"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "RSADFDev_ArmTemplate_0",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2024-03-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_0.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					},
+					"LS_ADLSGen2_using_MI_properties_typeProperties_url": {
+						"value": "[parameters('LS_ADLSGen2_using_MI_properties_typeProperties_url')]"
+					},
+					"LS_AccountKV_properties_typeProperties_baseUrl": {
+						"value": "[parameters('LS_AccountKV_properties_typeProperties_baseUrl')]"
+					},
+					"LS_AzureSQL_Using_MI_properties_typeProperties_server": {
+						"value": "[parameters('LS_AzureSQL_Using_MI_properties_typeProperties_server')]"
+					},
+					"LS_AzureSQL_Using_MI_properties_typeProperties_database": {
+						"value": "[parameters('LS_AzureSQL_Using_MI_properties_typeProperties_database')]"
+					},
+					"LS_KV_CSSBIPlatform_properties_typeProperties_baseUrl": {
+						"value": "[parameters('LS_KV_CSSBIPlatform_properties_typeProperties_baseUrl')]"
+					},
+					"LS_Synapse_CSSBIPlatofrm_properties_typeProperties_endpoint": {
+						"value": "[parameters('LS_Synapse_CSSBIPlatofrm_properties_typeProperties_endpoint')]"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "RSADFDev_ArmTemplate_1",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2024-03-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_1.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					},
+					"LS_FS_ASD_password": {
+						"value": "[parameters('LS_FS_ASD_password')]"
+					},
+					"LS_ADLSGen2_SPN_properties_typeProperties_url": {
+						"value": "[parameters('LS_ADLSGen2_SPN_properties_typeProperties_url')]"
+					},
+					"LS_ADLSGen2_SPN_properties_typeProperties_tenant": {
+						"value": "[parameters('LS_ADLSGen2_SPN_properties_typeProperties_tenant')]"
+					},
+					"LS_ADLSGen2_SPN_properties_typeProperties_servicePrincipalId": {
+						"value": "[parameters('LS_ADLSGen2_SPN_properties_typeProperties_servicePrincipalId')]"
+					},
+					"LS_ADLSGen2_Using_AK_properties_typeProperties_url": {
+						"value": "[parameters('LS_ADLSGen2_Using_AK_properties_typeProperties_url')]"
+					},
+					"LS_ADLS_CSSBIPlatform_properties_typeProperties_url": {
+						"value": "[parameters('LS_ADLS_CSSBIPlatform_properties_typeProperties_url')]"
+					},
+					"LS_ADLS_CSSBIPlatform_properties_typeProperties_tenant": {
+						"value": "[parameters('LS_ADLS_CSSBIPlatform_properties_typeProperties_tenant')]"
+					},
+					"LS_ADLS_CSSBIPlatform_properties_typeProperties_servicePrincipalId": {
+						"value": "[parameters('LS_ADLS_CSSBIPlatform_properties_typeProperties_servicePrincipalId')]"
+					},
+					"LS_ADLS_Gen2_SPN_properties_typeProperties_url": {
+						"value": "[parameters('LS_ADLS_Gen2_SPN_properties_typeProperties_url')]"
+					},
+					"LS_ADLS_Gen2_SPN_properties_typeProperties_tenant": {
+						"value": "[parameters('LS_ADLS_Gen2_SPN_properties_typeProperties_tenant')]"
+					},
+					"LS_ADLS_Gen2_SPN_properties_typeProperties_servicePrincipalId": {
+						"value": "[parameters('LS_ADLS_Gen2_SPN_properties_typeProperties_servicePrincipalId')]"
+					},
+					"LS_AzureDataExplorer_properties_typeProperties_endpoint": {
+						"value": "[parameters('LS_AzureDataExplorer_properties_typeProperties_endpoint')]"
+					},
+					"LS_AzureDataExplorer_properties_typeProperties_tenant": {
+						"value": "[parameters('LS_AzureDataExplorer_properties_typeProperties_tenant')]"
+					},
+					"LS_AzureDataExplorer_properties_typeProperties_servicePrincipalId": {
+						"value": "[parameters('LS_AzureDataExplorer_properties_typeProperties_servicePrincipalId')]"
+					},
+					"LS_AzureDataExplorer_properties_typeProperties_database": {
+						"value": "[parameters('LS_AzureDataExplorer_properties_typeProperties_database')]"
+					},
+					"LS_AzureSQLDatabase_Using_UIDPWD_properties_typeProperties_server": {
+						"value": "[parameters('LS_AzureSQLDatabase_Using_UIDPWD_properties_typeProperties_server')]"
+					},
+					"LS_AzureSQLDatabase_Using_UIDPWD_properties_typeProperties_database": {
+						"value": "[parameters('LS_AzureSQLDatabase_Using_UIDPWD_properties_typeProperties_database')]"
+					},
+					"LS_AzureSQLDatabase_Using_UIDPWD_properties_typeProperties_userName": {
+						"value": "[parameters('LS_AzureSQLDatabase_Using_UIDPWD_properties_typeProperties_userName')]"
+					},
+					"LS_AzureSQL_SPN_properties_typeProperties_server": {
+						"value": "[parameters('LS_AzureSQL_SPN_properties_typeProperties_server')]"
+					},
+					"LS_AzureSQL_SPN_properties_typeProperties_database": {
+						"value": "[parameters('LS_AzureSQL_SPN_properties_typeProperties_database')]"
+					},
+					"LS_AzureSQL_SPN_properties_typeProperties_servicePrincipalId": {
+						"value": "[parameters('LS_AzureSQL_SPN_properties_typeProperties_servicePrincipalId')]"
+					},
+					"LS_AzureSQL_SPN_properties_typeProperties_tenant": {
+						"value": "[parameters('LS_AzureSQL_SPN_properties_typeProperties_tenant')]"
+					},
+					"LS_DBX_CSSBIPlatform_properties_typeProperties_existingClusterId": {
+						"value": "[parameters('LS_DBX_CSSBIPlatform_properties_typeProperties_existingClusterId')]"
+					},
+					"LS_FS_ASD_properties_typeProperties_host": {
+						"value": "[parameters('LS_FS_ASD_properties_typeProperties_host')]"
+					},
+					"LS_FS_ASD_properties_typeProperties_userId": {
+						"value": "[parameters('LS_FS_ASD_properties_typeProperties_userId')]"
+					}
+				}
+			},
+			"dependsOn": [
+				"[resourceId('Microsoft.Resources/deployments', 'RSADFDev_ArmTemplate_0')]"
+			]
+		},
+		{
+			"name": "RSADFDev_ArmTemplate_2",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2024-03-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_2.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					},
+					"LS_HP_password": {
+						"value": "[parameters('LS_HP_password')]"
+					},
+					"LS_SQL_Azure_Platform_Config_connectionString": {
+						"value": "[parameters('LS_SQL_Azure_Platform_Config_connectionString')]"
+					},
+					"LS_HP_properties_typeProperties_server": {
+						"value": "[parameters('LS_HP_properties_typeProperties_server')]"
+					},
+					"LS_HP_properties_typeProperties_database": {
+						"value": "[parameters('LS_HP_properties_typeProperties_database')]"
+					},
+					"LS_HP_properties_typeProperties_userName": {
+						"value": "[parameters('LS_HP_properties_typeProperties_userName')]"
+					},
+					"LS_SQL_Azure_Platform_Config_properties_typeProperties_servicePrincipalId": {
+						"value": "[parameters('LS_SQL_Azure_Platform_Config_properties_typeProperties_servicePrincipalId')]"
+					},
+					"LS_SQL_Azure_Platform_Config_properties_typeProperties_tenant": {
+						"value": "[parameters('LS_SQL_Azure_Platform_Config_properties_typeProperties_tenant')]"
+					},
+					"adf-ws-censbitorusuatadls04_properties_privateLinkResourceId": {
+						"value": "[parameters('adf-ws-censbitorusuatadls04_properties_privateLinkResourceId')]"
+					},
+					"adf-ws-censbitorusuatadls04_properties_groupId": {
+						"value": "[parameters('adf-ws-censbitorusuatadls04_properties_groupId')]"
+					}
+				}
+			},
+			"dependsOn": [
+				"[resourceId('Microsoft.Resources/deployments', 'RSADFDev_ArmTemplate_1')]"
+			]
+		},
+		{
+			"name": "RSADFDev_ArmTemplate_3",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2024-03-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_3.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					}
+				}
+			},
+			"dependsOn": [
+				"[resourceId('Microsoft.Resources/deployments', 'RSADFDev_ArmTemplate_2')]"
+			]
+		},
+		{
+			"name": "RSADFDev_ArmTemplate_4",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2024-03-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_4.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					}
+				}
+			},
+			"dependsOn": [
+				"[resourceId('Microsoft.Resources/deployments', 'RSADFDev_ArmTemplate_3')]"
+			]
+		}
+	]
+}

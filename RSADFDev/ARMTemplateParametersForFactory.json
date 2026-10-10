@@ -1,0 +1,129 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "RSADFDev"
+		},
+		"LS_FS_ASD_password": {
+			"value": ""
+		},
+		"LS_HP_password": {
+			"value": ""
+		},
+		"LS_SQL_Azure_Platform_Config_connectionString": {
+			"value": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=sql-dev-cssbiplatform-torus-wus2.database.windows.net;Initial Catalog=db-platform-config"
+		},
+		"LS_ADLSGen2_SPN_properties_typeProperties_url": {
+			"value": "@{linkedService().ServerName}"
+		},
+		"LS_ADLSGen2_SPN_properties_typeProperties_tenant": {
+			"value": "@{linkedService().TenantId}"
+		},
+		"LS_ADLSGen2_SPN_properties_typeProperties_servicePrincipalId": {
+			"value": "@{linkedService().ServicePrincipalID}"
+		},
+		"LS_ADLSGen2_Using_AK_properties_typeProperties_url": {
+			"value": "@{linkedService().AcountName}"
+		},
+		"LS_ADLSGen2_using_MI_properties_typeProperties_url": {
+			"value": "@{linkedService().serverfullpath}"
+		},
+		"LS_ADLS_CSSBIPlatform_properties_typeProperties_url": {
+			"value": "@{linkedService().StorageAccountURL}"
+		},
+		"LS_ADLS_CSSBIPlatform_properties_typeProperties_tenant": {
+			"value": "@{linkedService().StorageAccountTenantId}"
+		},
+		"LS_ADLS_CSSBIPlatform_properties_typeProperties_servicePrincipalId": {
+			"value": "@{linkedService().StorageAccountSpnId}"
+		},
+		"LS_ADLS_Gen2_SPN_properties_typeProperties_url": {
+			"value": "@{linkedService().url}"
+		},
+		"LS_ADLS_Gen2_SPN_properties_typeProperties_tenant": {
+			"value": "@{linkedService().tenant}"
+		},
+		"LS_ADLS_Gen2_SPN_properties_typeProperties_servicePrincipalId": {
+			"value": "@{linkedService().servicePrincipalId}"
+		},
+		"LS_AccountKV_properties_typeProperties_baseUrl": {
+			"value": "https://RSAKVDev.vault.azure.net/"
+		},
+		"LS_AzureDataExplorer_properties_typeProperties_endpoint": {
+			"value": "@linkedService().KustoServer"
+		},
+		"LS_AzureDataExplorer_properties_typeProperties_tenant": {
+			"value": "@linkedService().tenantId"
+		},
+		"LS_AzureDataExplorer_properties_typeProperties_servicePrincipalId": {
+			"value": "@linkedService().ServicePrincipalId"
+		},
+		"LS_AzureDataExplorer_properties_typeProperties_database": {
+			"value": "@linkedService().KustoDatabase"
+		},
+		"LS_AzureSQLDatabase_Using_UIDPWD_properties_typeProperties_server": {
+			"value": "@{linkedService().ServerName}"
+		},
+		"LS_AzureSQLDatabase_Using_UIDPWD_properties_typeProperties_database": {
+			"value": "@{linkedService().DatabaseName}"
+		},
+		"LS_AzureSQLDatabase_Using_UIDPWD_properties_typeProperties_userName": {
+			"value": "@{linkedService().username}"
+		},
+		"LS_AzureSQL_SPN_properties_typeProperties_server": {
+			"value": "@{linkedService().server}"
+		},
+		"LS_AzureSQL_SPN_properties_typeProperties_database": {
+			"value": "@{linkedService().databasename}"
+		},
+		"LS_AzureSQL_SPN_properties_typeProperties_servicePrincipalId": {
+			"value": "@{linkedService().SPNID}"
+		},
+		"LS_AzureSQL_SPN_properties_typeProperties_tenant": {
+			"value": "@{linkedService().Tenantid}"
+		},
+		"LS_AzureSQL_Using_MI_properties_typeProperties_server": {
+			"value": "@{linkedService().ServerName}"
+		},
+		"LS_AzureSQL_Using_MI_properties_typeProperties_database": {
+			"value": "@{linkedService().DatabaseName}"
+		},
+		"LS_DBX_CSSBIPlatform_properties_typeProperties_existingClusterId": {
+			"value": "@linkedService().ClusterId"
+		},
+		"LS_FS_ASD_properties_typeProperties_host": {
+			"value": "\\\\LAPTOP-0K5EJVI4\\NOTES"
+		},
+		"LS_FS_ASD_properties_typeProperties_userId": {
+			"value": "laptop-0k5ejvi4\\mayur"
+		},
+		"LS_HP_properties_typeProperties_server": {
+			"value": "LAPTOP-4S918E2B"
+		},
+		"LS_HP_properties_typeProperties_database": {
+			"value": "mydb"
+		},
+		"LS_HP_properties_typeProperties_userName": {
+			"value": "rohit"
+		},
+		"LS_KV_CSSBIPlatform_properties_typeProperties_baseUrl": {
+			"value": "https://kv-dev-cssbit-wus2.vault.azure.net/"
+		},
+		"LS_SQL_Azure_Platform_Config_properties_typeProperties_servicePrincipalId": {
+			"value": "8f485f1d-2ea8-4284-82fd-e2f1b96b1f48"
+		},
+		"LS_SQL_Azure_Platform_Config_properties_typeProperties_tenant": {
+			"value": "cdc5aeea-15c5-4db6-b079-fcadd2505dc2"
+		},
+		"LS_Synapse_CSSBIPlatofrm_properties_typeProperties_endpoint": {
+			"value": "@{linkedService().WorkspaceURL}"
+		},
+		"adf-ws-censbitorusuatadls04_properties_privateLinkResourceId": {
+			"value": "/subscriptions/863eb5be-215b-4075-82db-915a8e759098/resourceGroups/censbitorusuatrg03/providers/Microsoft.Storage/storageAccounts/censbitorusuatadls04"
+		},
+		"adf-ws-censbitorusuatadls04_properties_groupId": {
+			"value": "dfs"
+		}
+	}
+}
