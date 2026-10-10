@@ -1,0 +1,22 @@
+{
+	"name": "LS_SQL_Azure_Platform_Config",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"description": "Platform Config database",
+		"annotations": [],
+		"type": "AzureSqlDatabase",
+		"typeProperties": {
+			"connectionString": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=sql-dev-cssbiplatform-torus-wus2.database.windows.net;Initial Catalog=db-platform-config",
+			"servicePrincipalId": "8f485f1d-2ea8-4284-82fd-e2f1b96b1f48",
+			"servicePrincipalKey": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "LS_KV_CSSBIPlatform",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": "SAnDP-Torus-SNI-Int-Cert"
+			},
+			"tenant": "cdc5aeea-15c5-4db6-b079-fcadd2505dc2"
+		}
+	}
+}

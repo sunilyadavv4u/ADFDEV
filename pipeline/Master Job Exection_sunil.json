@@ -1,0 +1,378 @@
+{
+	"name": "Master Job Exection_sunil",
+	"properties": {
+		"activities": [
+			{
+				"name": "Initialize Logging",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[InitLogging]",
+					"storedProcedureParameters": {
+						"status": {
+							"value": "Not Started",
+							"type": "String"
+						},
+						"LastUpdatedDateTime": {
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							},
+							"type": "Datetime"
+						},
+						"JobID": {
+							"value": {
+								"value": "@pipeline().parameters.jobid",
+								"type": "Expression"
+							},
+							"type": "Int64"
+						},
+						"MasterPipelineRunID": {
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
+							"type": "Guid"
+						},
+						"processstepid": {
+							"value": {
+								"value": "@pipeline().parameters.processstepid",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"StepRunType": {
+							"value": {
+								"value": "@pipeline().parameters.StepRunType",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"JobTreePipelineRunId": {
+							"value": {
+								"value": "@pipeline().parameters.JobtreePipelineRunID",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"isSLARun": {
+							"value": {
+								"value": "@pipeline().parameters.isSLARun",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_SQL_Azure_Platform_Config",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Lookup - Parallel ProcessSteps Run Priorites",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Initialize Logging",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "SELECT \n\tvp.[jobid]\n     ,vp.[priority]\nFROM [metadata].[vw_ProcessSteps] vp \njoin [logging].[tbl_ProcessSteps_Current] tp \non vp.jobid=tp.jobid and vp.id=tp.id\nWHERE vp.jobid = @{pipeline().parameters.jobid}\nAND vp.IsActive=1 AND tp.status !='Succeeded'\nGROUP BY  vp.[jobId], vp.[priority]\nORDER BY vp.[priority] ASC\n",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_Metadata",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "foreach loop to execute process Steps",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Lookup - Parallel ProcessSteps Run Priorites",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Lookup - Parallel ProcessSteps Run Priorites').output.value",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "Check failures conditions",
+							"type": "IfCondition",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(variables('ErrorVar'),false)",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Execute Process Steps_Sunil Runs",
+										"type": "ExecutePipeline",
+										"dependsOn": [],
+										"policy": {
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"pipeline": {
+												"referenceName": "Execute Process Steps_Sunil",
+												"type": "PipelineReference"
+											},
+											"waitOnCompletion": true,
+											"parameters": {
+												"JobId": {
+													"value": "@item().jobid",
+													"type": "Expression"
+												},
+												"Priority": {
+													"value": "@item().priority",
+													"type": "Expression"
+												},
+												"MasterPipelineRunId": {
+													"value": "@pipeline().RunId",
+													"type": "Expression"
+												}
+											}
+										}
+									},
+									{
+										"name": "Set ErrorVar to False",
+										"type": "SetVariable",
+										"dependsOn": [
+											{
+												"activity": "Execute Process Steps_Sunil Runs",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "ErrorVar",
+											"value": {
+												"value": "@bool(0)",
+												"type": "Expression"
+											}
+										}
+									},
+									{
+										"name": "Set ErrorVar to True",
+										"type": "SetVariable",
+										"dependsOn": [
+											{
+												"activity": "Execute Process Steps_Sunil Runs",
+												"dependencyConditions": [
+													"Failed"
+												]
+											}
+										],
+										"policy": {
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "ErrorVar",
+											"value": {
+												"value": "@bool(1)",
+												"type": "Expression"
+											}
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Success - Master Job logging",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "foreach loop to execute process Steps",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[UpdatejobStatus]",
+					"storedProcedureParameters": {
+						"status": {
+							"value": "Succeeded",
+							"type": "String"
+						},
+						"LastUpdatedDateTime": {
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							},
+							"type": "Datetime"
+						},
+						"JobID": {
+							"value": {
+								"value": "@{pipeline().parameters.jobid}",
+								"type": "Expression"
+							},
+							"type": "Int64"
+						},
+						"init": {
+							"value": "False",
+							"type": "Boolean"
+						},
+						"MasterPipelineRunID": {
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
+							"type": "Guid"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_SQL_Azure_Platform_Config",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Failure -Master Job logging",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "foreach loop to execute process Steps",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[UpdatejobStatus]",
+					"storedProcedureParameters": {
+						"status": {
+							"value": "Failed",
+							"type": "String"
+						},
+						"LastUpdatedDateTime": {
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							},
+							"type": "Datetime"
+						},
+						"JobID": {
+							"value": {
+								"value": "@{pipeline().parameters.jobid}",
+								"type": "Expression"
+							},
+							"type": "Int64"
+						},
+						"init": {
+							"value": "False",
+							"type": "Boolean"
+						},
+						"MasterPipelineRunID": {
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
+							"type": "Guid"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_SQL_Azure_Platform_Config",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"jobid": {
+				"type": "string"
+			},
+			"processstepid": {
+				"type": "string",
+				"defaultValue": "0"
+			},
+			"StepRunType": {
+				"type": "string",
+				"defaultValue": "0"
+			},
+			"JobtreePipelineRunID": {
+				"type": "string"
+			},
+			"isSLARun": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"ErrorVar": {
+				"type": "Boolean"
+			}
+		},
+		"folder": {
+			"name": "Sunil/Master Jobs_Sunil"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-09-25T03:43:18Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

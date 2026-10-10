@@ -1,0 +1,21 @@
+{
+	"name": "DS_test_ssms",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_ADLSGen2_using_MI",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": "stage/raw",
+				"fileSystem": "raw"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

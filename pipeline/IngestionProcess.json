@@ -1,0 +1,221 @@
+{
+	"name": "IngestionProcess",
+	"properties": {
+		"activities": [
+			{
+				"name": "get data from ingestiontable",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "select * from metadata.tbl_ingestionProcess where jobid = @{pipeline().parameters.jobid} and isActive = 1",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_AzureSQL_MI",
+						"type": "DatasetReference",
+						"parameters": {
+							"ServerName": {
+								"value": "@pipeline().parameters.metadataserver",
+								"type": "Expression"
+							},
+							"DBName": {
+								"value": "@pipeline().parameters.metadatadatabase",
+								"type": "Expression"
+							},
+							"TableSchema": " ",
+							"TableName": " "
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "IterateIngestion",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "get data from ingestiontable",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('get data from ingestiontable').output.value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "switch the source",
+							"type": "Switch",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"on": {
+									"value": "@toUpper(trim(item().srcType))",
+									"type": "Expression"
+								},
+								"cases": [
+									{
+										"value": "SQLSERVER",
+										"activities": [
+											{
+												"name": "calling ingestionp",
+												"type": "ExecutePipeline",
+												"dependsOn": [],
+												"policy": {
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"pipeline": {
+														"referenceName": "Copy data from AzureSQL to Gen2",
+														"type": "PipelineReference"
+													},
+													"waitOnCompletion": true,
+													"parameters": {
+														"ingestionid": {
+															"value": "@item().ingestionid",
+															"type": "Expression"
+														},
+														"jobid": {
+															"value": "@item().jobid",
+															"type": "Expression"
+														},
+														"srcserver": {
+															"value": "@item().srcserver",
+															"type": "Expression"
+														},
+														"srcDatabaseName": {
+															"value": "@item().srcDatabaseName",
+															"type": "Expression"
+														},
+														"srcType": {
+															"value": "@item().srcType",
+															"type": "Expression"
+														},
+														"SrcAuthenticationType": {
+															"value": "@item().SrcAuthenticationType",
+															"type": "Expression"
+														},
+														"srcUID": {
+															"value": "@item().srcUID",
+															"type": "Expression"
+														},
+														"srcPWD": {
+															"value": "@item().srcPWD",
+															"type": "Expression"
+														},
+														"SRCTenant": {
+															"value": "@item().SRCTenant",
+															"type": "Expression"
+														},
+														"SPNUser": {
+															"value": "@item().SPNUser",
+															"type": "Expression"
+														},
+														"SPNSecret": {
+															"value": "@item().SPNSecret",
+															"type": "Expression"
+														},
+														"SRCSchemaName": {
+															"value": "@item().SRCSchemaName",
+															"type": "Expression"
+														},
+														"SRCTableName": {
+															"value": "@item().SRCTableName",
+															"type": "Expression"
+														},
+														"SRCQuery": {
+															"value": "@item().SRCQuery",
+															"type": "Expression"
+														},
+														"srcContainerName": {
+															"value": "@item().srcContainerName",
+															"type": "Expression"
+														},
+														"srcDirectory": {
+															"value": "@item().srcDirectory",
+															"type": "Expression"
+														},
+														"srcFileName": {
+															"value": "@item().srcFileName",
+															"type": "Expression"
+														},
+														"tgtType": {
+															"value": "@item().tgtType",
+															"type": "Expression"
+														},
+														"tgtAuthenticationType": {
+															"value": "@item().tgtAuthenticationType",
+															"type": "Expression"
+														},
+														"tgtContainerName": {
+															"value": "@item().tgtContainerName",
+															"type": "Expression"
+														},
+														"tgtDirectory": {
+															"value": "@item().tgtDirectory",
+															"type": "Expression"
+														},
+														"tgtFileName": {
+															"value": "@item().tgtFileName",
+															"type": "Expression"
+														},
+														"isActive": {
+															"value": "@item().isActive",
+															"type": "Expression"
+														},
+														"tgtServerName": {
+															"value": "@item().tgtServerName",
+															"type": "Expression"
+														}
+													}
+												}
+											}
+										]
+									}
+								]
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"jobid": {
+				"type": "int"
+			},
+			"metadataserver": {
+				"type": "string",
+				"defaultValue": "rsmdev.database.windows.net"
+			},
+			"metadatadatabase": {
+				"type": "string",
+				"defaultValue": "sqldb"
+			}
+		},
+		"folder": {
+			"name": "RealtimeScenario"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-10-03T16:44:38Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

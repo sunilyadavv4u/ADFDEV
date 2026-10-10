@@ -1,0 +1,109 @@
+{
+	"name": "Ingestion Process by SourceType_Sunil",
+	"properties": {
+		"activities": [
+			{
+				"name": "Lookup - Parallel Run SourceType",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "SELECT \n\t  [jobid]\n     ,srcType As SourceType\nFROM [metadata].[vw_IngestionProcess]\nWHERE jobid = @{pipeline().parameters.jobid}\nand processStepId = @{pipeline().parameters.id}\nAND IsActive=1\nGROUP BY  [jobId], srcType",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_Metadata",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Ingest Sources",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Lookup - Parallel Run SourceType",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Lookup - Parallel Run SourceType').output.value",
+						"type": "Expression"
+					},
+					"batchCount": 30,
+					"activities": [
+						{
+							"name": "Execute Ingestion by Source Type",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Copy - Source to Target by SourceType_Sunil",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": false,
+								"parameters": {
+									"Id": {
+										"value": "@pipeline().parameters.Id",
+										"type": "Expression"
+									},
+									"JobId": {
+										"value": "@item().jobid",
+										"type": "Expression"
+									},
+									"MasterPipelineRunID": {
+										"value": "@pipeline().parameters.MasterPipelineRunID",
+										"type": "Expression"
+									},
+									"SourceType": {
+										"value": "@item().SourceType",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"Id": {
+				"type": "int"
+			},
+			"JobId": {
+				"type": "int"
+			},
+			"MasterPipelineRunID": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "Sunil/ProcessSteps_sunil/Ingestion_sunil"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-09-25T03:43:16Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

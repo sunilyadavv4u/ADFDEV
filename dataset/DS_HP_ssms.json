@@ -1,0 +1,17 @@
+{
+	"name": "DS_HP_ssms",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_HP",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "SqlServerTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "Users"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

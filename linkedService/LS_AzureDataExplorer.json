@@ -1,0 +1,47 @@
+{
+	"name": "LS_AzureDataExplorer",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"parameters": {
+			"KustoServer": {
+				"type": "string",
+				"defaultValue": "https://icmclusterlb.kustomfa.windows.net"
+			},
+			"KustoDatabase": {
+				"type": "string",
+				"defaultValue": "IcmDataWarehouse"
+			},
+			"ServicePrincipalId": {
+				"type": "string",
+				"defaultValue": "006cdabe-6347-4506-9691-94700f4f3824"
+			},
+			"ServicePrincipalSecret": {
+				"type": "string",
+				"defaultValue": "SAnDP-Torus-SNI-SRC-Cert"
+			},
+			"tenantId": {
+				"type": "string",
+				"defaultValue": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+			}
+		},
+		"annotations": [],
+		"type": "AzureDataExplorer",
+		"typeProperties": {
+			"endpoint": "@linkedService().KustoServer",
+			"tenant": "@linkedService().tenantId",
+			"servicePrincipalId": "@linkedService().ServicePrincipalId",
+			"servicePrincipalKey": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "LS_KV_CSSBIPlatform",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": {
+					"value": "@linkedService().ServicePrincipalSecret",
+					"type": "Expression"
+				}
+			},
+			"database": "@linkedService().KustoDatabase"
+		}
+	}
+}

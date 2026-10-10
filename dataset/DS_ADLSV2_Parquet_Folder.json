@@ -1,0 +1,68 @@
+{
+	"name": "DS_ADLSV2_Parquet_Folder",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_ADLS_CSSBIPlatform",
+			"type": "LinkedServiceReference",
+			"parameters": {
+				"StorageAccountURL": {
+					"value": "@dataset().StorageAccountURL",
+					"type": "Expression"
+				},
+				"StorageKeySecret": {
+					"value": "@dataset().StorageKeySecret",
+					"type": "Expression"
+				},
+				"StorageAccountSpnId": {
+					"value": "@dataset().StorageAccountSpnId",
+					"type": "Expression"
+				},
+				"StorageAccountTenantId": {
+					"value": "@dataset().StorageAccountTenantId",
+					"type": "Expression"
+				}
+			}
+		},
+		"parameters": {
+			"Container": {
+				"type": "string"
+			},
+			"Directory": {
+				"type": "string"
+			},
+			"StorageAccountURL": {
+				"type": "string"
+			},
+			"StorageKeySecret": {
+				"type": "string"
+			},
+			"StorageAccountSpnId": {
+				"type": "string"
+			},
+			"StorageAccountTenantId": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "Generic Datasets"
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": {
+					"value": "@dataset().Directory",
+					"type": "Expression"
+				},
+				"fileSystem": {
+					"value": "@if(empty(dataset().Container),\n  'cssbifs',\n  dataset().Container\n)",
+					"type": "Expression"
+				}
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

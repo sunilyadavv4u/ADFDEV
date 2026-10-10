@@ -1,0 +1,19 @@
+{
+	"name": "LS_Synapse_CSSBIPlatofrm",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"parameters": {
+			"WorkspaceURL": {
+				"type": "string",
+				"defaultValue": "https://asa-dev-cesbiplatformt-wus.dev.azuresynapse.net"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSynapseArtifacts",
+		"typeProperties": {
+			"endpoint": "@{linkedService().WorkspaceURL}",
+			"authentication": "MSI",
+			"workspaceResourceId": ""
+		}
+	}
+}

@@ -1,0 +1,45 @@
+{
+	"name": "LS_AzureSQL_SPN",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"parameters": {
+			"server": {
+				"type": "string"
+			},
+			"databasename": {
+				"type": "string"
+			},
+			"Tenantid": {
+				"type": "string"
+			},
+			"SPNID": {
+				"type": "string"
+			},
+			"SPN_Secret": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlDatabase",
+		"typeProperties": {
+			"server": "@{linkedService().server}",
+			"database": "@{linkedService().databasename}",
+			"encrypt": "mandatory",
+			"trustServerCertificate": false,
+			"authenticationType": "ServicePrincipal",
+			"servicePrincipalId": "@{linkedService().SPNID}",
+			"servicePrincipalCredential": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "LS_AccountKV",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": {
+					"value": "@linkedService().SPN_Secret",
+					"type": "Expression"
+				}
+			},
+			"tenant": "@{linkedService().Tenantid}"
+		}
+	}
+}

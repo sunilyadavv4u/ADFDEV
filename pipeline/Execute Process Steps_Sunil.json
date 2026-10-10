@@ -1,0 +1,356 @@
+{
+	"name": "Execute Process Steps_Sunil",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get Process Steps based on Priority and job",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderStoredProcedureName": "[dbo].[getExecutionProcessSteps]",
+						"storedProcedureParameters": {
+							"JobId": {
+								"type": "Int32",
+								"value": {
+									"value": "@pipeline().parameters.JobId",
+									"type": "Expression"
+								}
+							},
+							"Priority": {
+								"type": "Int32",
+								"value": {
+									"value": "@pipeline().parameters.Priority",
+									"type": "Expression"
+								}
+							}
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_Metadata",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Execute Steps",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get Process Steps based on Priority and job",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get Process Steps based on Priority and job').output.value",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"activities": [
+						{
+							"name": "Switch Process Type",
+							"type": "Switch",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"on": {
+									"value": "@item().type",
+									"type": "Expression"
+								},
+								"cases": [
+									{
+										"value": "Ingestion",
+										"activities": [
+											{
+												"name": "Ingestion Wait in Secs",
+												"type": "Wait",
+												"dependsOn": [],
+												"userProperties": [],
+												"typeProperties": {
+													"waitTimeInSeconds": {
+														"value": "@item().WaitTime",
+														"type": "Expression"
+													}
+												}
+											},
+											{
+												"name": "Ingest Sources",
+												"type": "ExecutePipeline",
+												"dependsOn": [
+													{
+														"activity": "Ingestion Wait in Secs",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"pipeline": {
+														"referenceName": "Ingest Sources_Sunil",
+														"type": "PipelineReference"
+													},
+													"waitOnCompletion": true,
+													"parameters": {
+														"id": {
+															"value": "@item().ProcessStepsId",
+															"type": "Expression"
+														},
+														"jobid": {
+															"value": "@item().jobid",
+															"type": "Expression"
+														},
+														"MasterPipelineRunID": {
+															"value": "@pipeline().parameters.MasterPipelineRunId",
+															"type": "Expression"
+														}
+													}
+												}
+											}
+										]
+									},
+									{
+										"value": "RunNotebook",
+										"activities": [
+											{
+												"name": "Transform DBX Notebooks",
+												"type": "ExecutePipeline",
+												"dependsOn": [],
+												"policy": {
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"pipeline": {
+														"referenceName": "Notebook Process Steps_Sunil",
+														"type": "PipelineReference"
+													},
+													"waitOnCompletion": true,
+													"parameters": {
+														"id": {
+															"value": "@item().ProcessStepsId",
+															"type": "Expression"
+														},
+														"jobid": {
+															"value": "@item().jobid",
+															"type": "Expression"
+														},
+														"MasterPipelineRunID": {
+															"value": "@pipeline().parameters.MasterPipelineRunId",
+															"type": "Expression"
+														}
+													}
+												}
+											}
+										]
+									},
+									{
+										"value": "PublishADLSProcess",
+										"activities": [
+											{
+												"name": "Execute AdlsFolderCopy",
+												"type": "ExecutePipeline",
+												"dependsOn": [],
+												"policy": {
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"pipeline": {
+														"referenceName": "Publish To ADLS_Sunil",
+														"type": "PipelineReference"
+													},
+													"waitOnCompletion": true,
+													"parameters": {
+														"jobid": {
+															"value": "@item().jobid",
+															"type": "Expression"
+														},
+														"MasterPipelineRunID": {
+															"value": "@pipeline().parameters.MasterPipelineRunId",
+															"type": "Expression"
+														},
+														"id": {
+															"value": "@item().ProcessStepsId",
+															"type": "Expression"
+														}
+													}
+												}
+											}
+										]
+									}
+								]
+							}
+						},
+						{
+							"name": "Success - Process Steps",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Switch Process Type",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[UpdateProcessStepsStatus]",
+								"storedProcedureParameters": {
+									"init": {
+										"value": "False",
+										"type": "Boolean"
+									},
+									"JobID": {
+										"value": {
+											"value": "@pipeline().parameters.JobId",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"LastUpdatedDateTime": {
+										"value": {
+											"value": "@utcNow()",
+											"type": "Expression"
+										},
+										"type": "Datetime"
+									},
+									"MasterPipelineRunID": {
+										"value": {
+											"value": "@pipeline().parameters.MasterPipelineRunId",
+											"type": "Expression"
+										},
+										"type": "Guid"
+									},
+									"ProcessID": {
+										"value": {
+											"value": "@item().ProcessStepsId",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"Status": {
+										"value": "Succeeded",
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_SQL_Azure_Platform_Config",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Failure - Process Steps",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Switch Process Type",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[UpdateProcessStepsStatus]",
+								"storedProcedureParameters": {
+									"init": {
+										"value": "False",
+										"type": "Boolean"
+									},
+									"JobID": {
+										"value": {
+											"value": "@pipeline().parameters.JobId",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"LastUpdatedDateTime": {
+										"value": {
+											"value": "@utcNow()",
+											"type": "Expression"
+										},
+										"type": "Datetime"
+									},
+									"MasterPipelineRunID": {
+										"value": {
+											"value": "@pipeline().parameters.MasterPipelineRunId",
+											"type": "Expression"
+										},
+										"type": "Guid"
+									},
+									"ProcessID": {
+										"value": {
+											"value": "@item().ProcessStepsId",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"Status": {
+										"value": "Failed",
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_SQL_Azure_Platform_Config",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"JobId": {
+				"type": "int"
+			},
+			"Priority": {
+				"type": "int"
+			},
+			"MasterPipelineRunId": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "Sunil/Master Jobs_Sunil"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-09-25T03:43:18Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

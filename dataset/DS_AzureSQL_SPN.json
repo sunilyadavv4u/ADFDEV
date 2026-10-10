@@ -1,0 +1,68 @@
+{
+	"name": "DS_AzureSQL_SPN",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_AzureSQL_SPN",
+			"type": "LinkedServiceReference",
+			"parameters": {
+				"server": {
+					"value": "@dataset().server",
+					"type": "Expression"
+				},
+				"databasename": {
+					"value": "@dataset().databasename",
+					"type": "Expression"
+				},
+				"Tenantid": {
+					"value": "@dataset().Tenantid",
+					"type": "Expression"
+				},
+				"SPNID": {
+					"value": "@dataset().SPNID",
+					"type": "Expression"
+				},
+				"SPN_Secret": {
+					"value": "@dataset().SPN_Secret",
+					"type": "Expression"
+				}
+			}
+		},
+		"parameters": {
+			"server": {
+				"type": "string"
+			},
+			"databasename": {
+				"type": "string"
+			},
+			"Tenantid": {
+				"type": "string"
+			},
+			"SPNID": {
+				"type": "string"
+			},
+			"SPN_Secret": {
+				"type": "string"
+			},
+			"tbl_schema": {
+				"type": "string"
+			},
+			"tbl_name": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": {
+				"value": "@dataset().tbl_schema",
+				"type": "Expression"
+			},
+			"table": {
+				"value": "@dataset().tbl_name",
+				"type": "Expression"
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

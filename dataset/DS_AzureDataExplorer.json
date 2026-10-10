@@ -1,0 +1,58 @@
+{
+	"name": "DS_AzureDataExplorer",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_AzureDataExplorer",
+			"type": "LinkedServiceReference",
+			"parameters": {
+				"KustoServer": {
+					"value": "@dataset().Kustoserver",
+					"type": "Expression"
+				},
+				"KustoDatabase": {
+					"value": "@dataset().KustoDatabase",
+					"type": "Expression"
+				},
+				"ServicePrincipalId": {
+					"value": "@dataset().ServicePrincipalId",
+					"type": "Expression"
+				},
+				"ServicePrincipalSecret": {
+					"value": "@dataset().ServicePrincipalSecret",
+					"type": "Expression"
+				},
+				"tenantId": {
+					"value": "@dataset().TenantId",
+					"type": "Expression"
+				}
+			}
+		},
+		"parameters": {
+			"Kustoserver": {
+				"type": "string"
+			},
+			"KustoDatabase": {
+				"type": "string"
+			},
+			"ServicePrincipalId": {
+				"type": "string"
+			},
+			"ServicePrincipalSecret": {
+				"type": "string"
+			},
+			"TenantId": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "Generic Datasets"
+		},
+		"annotations": [],
+		"type": "AzureDataExplorerTable",
+		"schema": [],
+		"typeProperties": {
+			"table": "kusto"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

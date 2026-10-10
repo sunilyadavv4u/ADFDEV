@@ -1,0 +1,1209 @@
+{
+	"name": "Failure Email Alert",
+	"properties": {
+		"activities": [
+			{
+				"name": "GetEmailConfig",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Get Parameters",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 1,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderStoredProcedureName": {
+							"value": "@activity('Get Parameters').output.firstRow.StoredProcName",
+							"type": "Expression"
+						},
+						"storedProcedureParameters": {
+							"JobId": {
+								"type": "Int32",
+								"value": {
+									"value": "@pipeline().parameters.JobId",
+									"type": "Expression"
+								}
+							},
+							"ObjectName": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().parameters.ObjectName",
+									"type": "Expression"
+								}
+							},
+							"ProcessStepId": {
+								"type": "Int32",
+								"value": {
+									"value": "@pipeline().parameters.ProcessStepId",
+									"type": "Expression"
+								}
+							}
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_SQL_OrchConfig",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": true
+				}
+			},
+			{
+				"name": "Raise Error On Failure",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[usp_raise_error]",
+					"storedProcedureParameters": {
+						"Message": {
+							"value": {
+								"value": "@pipeline().parameters.ErrorMessage",
+								"type": "Expression"
+							},
+							"type": "string"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_SQL_Azure_Platform_Config",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Get Authentication Key from AKV",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "GetAKVConfig",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": true,
+					"secureInput": true
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "GET",
+					"url": {
+						"value": "@concat(activity('GetAKVConfig').output.firstRow.srcServerName,activity('Get Parameters').output.firstRow.SubscriptionKeyAPI_URL)",
+						"type": "Expression"
+					},
+					"body": {
+						"simple": "body"
+					},
+					"authentication": {
+						"type": "MSI",
+						"resource": {
+							"value": "@activity('Get Parameters').output.firstRow.KV_Resource",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Get send mail API URL from AKV",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Get Authentication Key from AKV",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": true,
+					"secureInput": true
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "GET",
+					"url": {
+						"value": "@concat(activity('GetAKVConfig').output.firstRow.srcServerName,activity('Get Parameters').output.firstRow.SendMailAPI_URL)",
+						"type": "Expression"
+					},
+					"body": {
+						"simple": "body"
+					},
+					"authentication": {
+						"type": "MSI",
+						"resource": {
+							"value": "@activity('Get Parameters').output.firstRow.KV_Resource",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "GetAKVConfig",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "GetEmailConfig",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "@activity('Get Parameters').output.firstRow.Query",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_SQL_OrchConfig",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "Get Notification Logs",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Get send mail API URL from AKV",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "IF '@{replace(pipeline().parameters.DQStatus,'''','')}' = 'Exception: Validation Failed'\nselect 'count' = 'default'\nELSE\nIF EXISTS (select 1 from metadata.tbl_Notification with (NOLOCK) where Jobid=@{pipeline().parameters.JobId}  and ado_IsEnabled=0)\nselect 'Count'= 'ado_disabled'\nElse\nIF Exists(SELECT * from logging.tbl_Notification_current \nwhere  JobId = @{pipeline().parameters.JobId}  and ado_WorkItemType='Alert')\nselect 'Count'='ado_enabled_task'\nELSE\nselect 'Count'='ado_enabled_alert'",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_SQL_OrchConfig",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "Switch Ado Status",
+				"type": "Switch",
+				"dependsOn": [
+					{
+						"activity": "Get Notification Logs",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"on": {
+						"value": "@activity('Get Notification Logs').output.firstRow.Count",
+						"type": "Expression"
+					},
+					"cases": [
+						{
+							"value": "ado_disabled",
+							"activities": [
+								{
+									"name": "Webapp_Error_Mail",
+									"type": "WebActivity",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"method": "POST",
+										"headers": {
+											"Content-Type": {
+												"value": "@activity('Get Parameters').output.firstRow.ContentType",
+												"type": "Expression"
+											},
+											"Ocp-Apim-Subscription-Key": {
+												"value": "@activity('Get Authentication Key from AKV').output.value",
+												"type": "Expression"
+											}
+										},
+										"url": {
+											"value": "@activity('Get send mail API URL from AKV').output.value",
+											"type": "Expression"
+										},
+										"body": {
+											"value": "{\n\"Job\":\"@{activity('GetEmailConfig').output.firstRow.notificationName}\",\n\"Environment\":\"@{activity('GetEmailConfig').output.firstRow.Environment}\",\n\"ToList\":\"@{activity('GetEmailConfig').output.firstRow.toID}\",\n\"CCList\":\"@{activity('GetEmailConfig').output.firstRow.ccID}\",\n\"SubjectLine\":\"@{activity('GetEmailConfig').output.firstRow.Subject}\",\n\"DataFactory\":\"@{pipeline().DataFactory}\",\n\"Pipeline\":\"@{pipeline().parameters.PipelineName}\",\n\"Activity\":\"Test Activity\",\n\"Error\":\"@{replace(pipeline().parameters.ErrorMessage,'\\','\\\\')}\",\n\"Process\":\"ADF\",\n\"ObjectName\":\"@{pipeline().parameters.ObjectName}\",\n\"ado_AreaPath\":\"@{activity('GetEmailConfig').output.firstRow.ado_AreaPath}\",\n\"ado_AssignedTo\":\"@{activity('GetEmailConfig').output.firstRow.ado_AssignedTo}\",\n\"ado_IterationPath\":\"@{activity('GetEmailConfig').output.firstRow.ado_IterationPath}\",\n\"ado_Priority\":\"@{activity('GetEmailConfig').output.firstRow.ado_Priority}\",\n\"ado_Tags\":\"@{activity('GetEmailConfig').output.firstRow.ado_Tags}\",\n\"ado_State\":\"@{activity('GetEmailConfig').output.firstRow.ado_State}\",\n\"JobId\":\"@{pipeline().parameters.JobId}\",\n\"ProcessStepId\":\"@{pipeline().parameters.ProcessStepId}\",\n\"ProcessStepName\":\"@{activity('GetEmailConfig').output.firstRow.ProcessStepName}\",\n\"JobTreeId\":\"@{activity('GetEmailConfig').output.firstRow.JobTreeId}\",\n\"JobName\":\"@{activity('GetEmailConfig').output.firstRow.JobName}\",\n\"TrackName\":\"@{activity('GetEmailConfig').output.firstRow.trackName}\",\n\"ado_IsEnabled\":\"@{activity('GetEmailConfig').output.firstRow.ado_IsEnabled}\",\n\"ado_WorkItemType\":\"NA\",\n\"ado_Url\":\"NA\",\n\"ProcessType\":\"@{activity('GetEmailConfig').output.firstRow.ProcessType}\",\n\"ProcessId\":\"@{activity('GetEmailConfig').output.firstRow.SubProcessId}\",\n\"JobRunId\":\"@{activity('GetEmailConfig').output.firstRow.JobRunId}\"\n}",
+											"type": "Expression"
+										}
+									}
+								},
+								{
+									"name": "Insert Notification logging",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Webapp_Error_Mail",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "[dbo].[usp_InsertNotificationLogging]",
+										"storedProcedureParameters": {
+											"ado_AreaPath": {
+												"value": null,
+												"type": "String"
+											},
+											"ado_AssignedTo": {
+												"value": null,
+												"type": "String"
+											},
+											"ado_IsEnabled": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_IsEnabled",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_IterationPath": {
+												"value": null,
+												"type": "String"
+											},
+											"ado_Org": {
+												"value": null,
+												"type": "String"
+											},
+											"ado_Priority": {
+												"value": null,
+												"type": "Int32"
+											},
+											"ado_Project": {
+												"value": null,
+												"type": "String"
+											},
+											"ado_State": {
+												"value": null,
+												"type": "String"
+											},
+											"ado_Tags": {
+												"value": null,
+												"type": "String"
+											},
+											"ado_WorkItemType": {
+												"value": null,
+												"type": "String"
+											},
+											"ccID": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ccID",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"createdDate": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.createdDate",
+													"type": "Expression"
+												},
+												"type": "DateTime"
+											},
+											"isActive": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.isActive",
+													"type": "Expression"
+												},
+												"type": "Boolean"
+											},
+											"ado_Title": {
+												"value": null,
+												"type": "String"
+											},
+											"JobId": {
+												"value": {
+													"value": "@pipeline().parameters.JobId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"notificationID": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.notificationID",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"ProcessStepId": {
+												"value": {
+													"value": "@pipeline().parameters.ProcessStepId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"subject": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.subject",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"toID": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.toID",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_Url": {
+												"value": null,
+												"type": "String"
+											},
+											"ado_ParentUrl": {
+												"value": null,
+												"type": "String"
+											},
+											"JobrunId": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.JobRunId",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ProcessId": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.SubProcessId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"ProcessType": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ProcessType",
+													"type": "Expression"
+												},
+												"type": "String"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "LS_SQL_Azure_Platform_Config",
+										"type": "LinkedServiceReference"
+									}
+								}
+							]
+						},
+						{
+							"value": "ado_enabled_alert",
+							"activities": [
+								{
+									"name": "Webapp_Error_AlertMail",
+									"type": "WebActivity",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"method": "POST",
+										"headers": {
+											"Content-Type": {
+												"value": "@activity('Get Parameters').output.firstRow.ContentType",
+												"type": "Expression"
+											},
+											"Ocp-Apim-Subscription-Key": {
+												"value": "@activity('Get Authentication Key from AKV').output.value",
+												"type": "Expression"
+											}
+										},
+										"url": {
+											"value": "@activity('Get send mail API URL from AKV').output.value",
+											"type": "Expression"
+										},
+										"body": {
+											"value": "{\n\"Job\":\"@{activity('GetEmailConfig').output.firstRow.notificationName}\",\n\"Environment\":\"@{activity('GetEmailConfig').output.firstRow.Environment}\",\n\"ToList\":\"@{activity('GetEmailConfig').output.firstRow.toID}\",\n\"CCList\":\"@{activity('GetEmailConfig').output.firstRow.ccID}\",\n\"SubjectLine\":\"@{activity('GetEmailConfig').output.firstRow.Subject}\",\n\"DataFactory\":\"@{pipeline().DataFactory}\",\n\"Pipeline\":\"@{pipeline().parameters.PipelineName}\",\n\"Activity\":\"Test Activity\",\n\"Error\":\"@{replace(pipeline().parameters.ErrorMessage,'\\','\\\\')}\",\n\"Process\":\"ADF\",\n\"ObjectName\":\"@{pipeline().parameters.ObjectName}\",\n\"ado_AreaPath\":\"@{activity('GetEmailConfig').output.firstRow.ado_AreaPath}\",\n\"ado_AssignedTo\":\"@{activity('GetEmailConfig').output.firstRow.ado_AssignedTo}\",\n\"ado_IterationPath\":\"@{activity('GetEmailConfig').output.firstRow.ado_IterationPath}\",\n\"ado_Priority\":\"@{activity('GetEmailConfig').output.firstRow.ado_Priority}\",\n\"ado_Tags\":\"@{activity('GetEmailConfig').output.firstRow.ado_Tags}\",\n\"ado_State\":\"@{activity('GetEmailConfig').output.firstRow.ado_State}\",\n\"JobId\":\"@{pipeline().parameters.JobId}\",\n\"ProcessStepId\":\"@{pipeline().parameters.ProcessStepId}\",\n\"ProcessStepName\":\"@{activity('GetEmailConfig').output.firstRow.ProcessStepName}\",\n\"JobTreeId\":\"@{activity('GetEmailConfig').output.firstRow.JobTreeId}\",\n\"JobName\":\"@{activity('GetEmailConfig').output.firstRow.JobName}\",\n\"TrackName\":\"@{activity('GetEmailConfig').output.firstRow.trackName}\",\n\"ado_IsEnabled\":\"@{activity('GetEmailConfig').output.firstRow.ado_IsEnabled}\",\n\"ado_WorkItemType\":\"Alert\",\n\"ado_Url\":\"NA\",\n\"ProcessType\":\"@{activity('GetEmailConfig').output.firstRow.ProcessType}\",\n\"ProcessId\":\"@{activity('GetEmailConfig').output.firstRow.SubProcessId}\",\n\"JobRunId\":\"@{activity('GetEmailConfig').output.firstRow.JobRunId}\"\n}",
+											"type": "Expression"
+										}
+									}
+								},
+								{
+									"name": "Insert Notification logging - Alert",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Webapp_Error_AlertMail",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "[dbo].[usp_InsertNotificationLogging]",
+										"storedProcedureParameters": {
+											"ado_AreaPath": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_AreaPath",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_AssignedTo": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_AssignedTo",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_IsEnabled": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_IsEnabled",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_IterationPath": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_IterationPath",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_Org": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_Org",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_Priority": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_Priority",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"ado_Project": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_Project",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_State": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_State",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_Tags": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_Tags",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_WorkItemType": {
+												"value": {
+													"value": "Alert",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ccID": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ccID",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"createdDate": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.createdDate",
+													"type": "Expression"
+												},
+												"type": "DateTime"
+											},
+											"isActive": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.isActive",
+													"type": "Expression"
+												},
+												"type": "Boolean"
+											},
+											"ado_Title": {
+												"value": {
+													"value": "@activity('Webapp_Error_AlertMail').output.AdoAlertTitle",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"JobId": {
+												"value": {
+													"value": "@pipeline().parameters.JobId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"notificationID": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.notificationID",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"ProcessStepId": {
+												"value": null,
+												"type": "Int32"
+											},
+											"subject": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.subject",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"toID": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.toID",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_Url": {
+												"value": "NA",
+												"type": "String"
+											},
+											"ado_ParentUrl": {
+												"value": {
+													"value": "@activity('Webapp_Error_AlertMail').output.AdoAlertUrl",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"JobrunId": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.JobRunId",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ProcessId": {
+												"value": null,
+												"type": "Int32"
+											},
+											"ProcessType": {
+												"value": null,
+												"type": "String"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "LS_SQL_Azure_Platform_Config",
+										"type": "LinkedServiceReference"
+									}
+								},
+								{
+									"name": "Insert Notification logging - Alert_Task",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Insert Notification logging - Alert",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "[dbo].[usp_InsertNotificationLogging]",
+										"storedProcedureParameters": {
+											"ado_AreaPath": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_AreaPath",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_AssignedTo": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_AssignedTo",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_IsEnabled": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_IsEnabled",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_IterationPath": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_IterationPath",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_Org": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_Org",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_Priority": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_Priority",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"ado_Project": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_Project",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_State": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_State",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_Tags": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_Tags",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_WorkItemType": {
+												"value": {
+													"value": "Task",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ccID": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ccID",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"createdDate": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.createdDate",
+													"type": "Expression"
+												},
+												"type": "DateTime"
+											},
+											"isActive": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.isActive",
+													"type": "Expression"
+												},
+												"type": "Boolean"
+											},
+											"ado_Title": {
+												"value": {
+													"value": "@activity('Webapp_Error_AlertMail').output.AdoTaskTitle",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"JobId": {
+												"value": {
+													"value": "@pipeline().parameters.JobId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"notificationID": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.notificationID",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"ProcessStepId": {
+												"value": {
+													"value": "@pipeline().parameters.ProcessStepId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"subject": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.subject",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"toID": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.toID",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_Url": {
+												"value": {
+													"value": "@activity('Webapp_Error_AlertMail').output.AdoTaskUrl",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_ParentUrl": {
+												"value": {
+													"value": "@activity('Webapp_Error_AlertMail').output.AdoAlertUrl",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"JobrunId": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.JobRunId",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ProcessId": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.SubProcessId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"ProcessType": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ProcessType",
+													"type": "Expression"
+												},
+												"type": "String"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "LS_SQL_Azure_Platform_Config",
+										"type": "LinkedServiceReference"
+									}
+								}
+							]
+						},
+						{
+							"value": "ado_enabled_task",
+							"activities": [
+								{
+									"name": "Webapp_ErrorTask_Mail",
+									"type": "WebActivity",
+									"dependsOn": [
+										{
+											"activity": "Get ADO Url -Alert",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"method": "POST",
+										"headers": {
+											"Content-Type": {
+												"value": "@activity('Get Parameters').output.firstRow.ContentType",
+												"type": "Expression"
+											},
+											"Ocp-Apim-Subscription-Key": {
+												"value": "@activity('Get Authentication Key from AKV').output.value",
+												"type": "Expression"
+											}
+										},
+										"url": {
+											"value": "@activity('Get send mail API URL from AKV').output.value",
+											"type": "Expression"
+										},
+										"body": {
+											"value": "{\n\"Job\":\"@{activity('GetEmailConfig').output.firstRow.notificationName}\",\n\"Environment\":\"@{activity('GetEmailConfig').output.firstRow.Environment}\",\n\"ToList\":\"@{activity('GetEmailConfig').output.firstRow.toID}\",\n\"CCList\":\"@{activity('GetEmailConfig').output.firstRow.ccID}\",\n\"SubjectLine\":\"@{activity('GetEmailConfig').output.firstRow.Subject}\",\n\"DataFactory\":\"@{pipeline().DataFactory}\",\n\"Pipeline\":\"@{pipeline().parameters.PipelineName}\",\n\"Activity\":\"Test Activity\",\n\"Error\":\"@{replace(pipeline().parameters.ErrorMessage,'\\','\\\\')}\",\n\"Process\":\"ADF\",\n\"ObjectName\":\"@{pipeline().parameters.ObjectName}\",\n\"ado_AreaPath\":\"@{activity('GetEmailConfig').output.firstRow.ado_AreaPath}\",\n\"ado_AssignedTo\":\"@{activity('GetEmailConfig').output.firstRow.ado_AssignedTo}\",\n\"ado_IterationPath\":\"@{activity('GetEmailConfig').output.firstRow.ado_IterationPath}\",\n\"ado_Priority\":\"@{activity('GetEmailConfig').output.firstRow.ado_Priority}\",\n\"ado_Tags\":\"@{activity('GetEmailConfig').output.firstRow.ado_Tags}\",\n\"ado_Statetate\":\"@{activity('GetEmailConfig').output.firstRow.ado_State}\",\n\"JobId\":\"@{pipeline().parameters.JobId}\",\n\"ProcessStepId\":\"@{pipeline().parameters.ProcessStepId}\",\n\"ProcessStepName\":\"@{activity('GetEmailConfig').output.firstRow.ProcessStepName}\",\n\"JobTreeId\":\"@{activity('GetEmailConfig').output.firstRow.JobTreeId}\",\n\"JobName\":\"@{activity('GetEmailConfig').output.firstRow.JobName}\",\n\"TrackName\":\"@{activity('GetEmailConfig').output.firstRow.trackName}\",\n\"ado_IsEnabled\":\"@{activity('GetEmailConfig').output.firstRow.ado_IsEnabled}\",\n\"ado_WorkItemType\":\"Task\",\n\"ado_ParentUrl\":\"@{activity('Get ADO Url -Alert').output.firstRow.ado_ParentUrl}\",\n\"ProcessType\":\"@{activity('GetEmailConfig').output.firstRow.ProcessType}\",\n\"ProcessId\":\"@{activity('GetEmailConfig').output.firstRow.SubProcessId}\",\n\"JobRunId\":\"@{activity('GetEmailConfig').output.firstRow.JobRunId}\"\n}",
+											"type": "Expression"
+										}
+									}
+								},
+								{
+									"name": "Insert Notification logging - Task",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Webapp_ErrorTask_Mail",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "[dbo].[usp_InsertNotificationLogging]",
+										"storedProcedureParameters": {
+											"ado_AreaPath": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_AreaPath",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_AssignedTo": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_AssignedTo",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_IsEnabled": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_IsEnabled",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_IterationPath": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_IterationPath",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_Org": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_Org",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_Priority": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_Priority",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"ado_Project": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_Project",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_State": {
+												"value": "To Do",
+												"type": "String"
+											},
+											"ado_Tags": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ado_Tags",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_WorkItemType": {
+												"value": {
+													"value": "Task",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ccID": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ccID",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"createdDate": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.createdDate",
+													"type": "Expression"
+												},
+												"type": "DateTime"
+											},
+											"isActive": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.isActive",
+													"type": "Expression"
+												},
+												"type": "Boolean"
+											},
+											"ado_Title": {
+												"value": {
+													"value": "@activity('Webapp_ErrorTask_Mail').output.AdoTaskTitle",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"JobId": {
+												"value": {
+													"value": "@pipeline().parameters.JobId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"notificationID": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.notificationID",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"ProcessStepId": {
+												"value": {
+													"value": "@pipeline().parameters.ProcessStepId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"subject": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.subject",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"toID": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.toID",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_Url": {
+												"value": {
+													"value": "@activity('Webapp_ErrorTask_Mail').output.AdoTaskUrl",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ado_ParentUrl": {
+												"value": {
+													"value": "@activity('Get ADO Url -Alert').output.firstRow.ado_ParentUrl",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"JobrunId": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.JobRunId",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ProcessType": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.ProcessType",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"ProcessId": {
+												"value": {
+													"value": "@activity('GetEmailConfig').output.firstRow.SubProcessId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "LS_SQL_Azure_Platform_Config",
+										"type": "LinkedServiceReference"
+									}
+								},
+								{
+									"name": "Get ADO Url -Alert",
+									"type": "Lookup",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "AzureSqlSource",
+											"sqlReaderQuery": {
+												"value": "SELECT  ado_WorkItemType,ado_ParentUrl from logging.tbl_Notification_current \nwhere  JobId = @{pipeline().parameters.JobId} and ado_WorkItemType='Alert'\n",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"dataset": {
+											"referenceName": "DS_SQL_OrchConfig",
+											"type": "DatasetReference"
+										}
+									}
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				"name": "Get Parameters",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "select * from \n(select [name], [value] from metadata.tbl_DataFactoryPipelineParameters \n where pipelineName = 'Failure Email Alert' or pipelineName = 'Update Or Cancel Pipeline'\n)\ntbl\npivot\n(\n\tmax(value)\n\tfor [name] in ([StoredProcName], [ContentType],[Query], [SubscriptionKeyAPI_URL], [SendMailAPI_URL], [KV_Resource])\n) as t",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_SQL_OrchConfig",
+						"type": "DatasetReference"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"JobId": {
+				"type": "string"
+			},
+			"ErrorMessage": {
+				"type": "string"
+			},
+			"PipelineName": {
+				"type": "string"
+			},
+			"ObjectName": {
+				"type": "string"
+			},
+			"ProcessStepId": {
+				"type": "string"
+			},
+			"DQStatus": {
+				"type": "string",
+				"defaultValue": "NA"
+			}
+		},
+		"variables": {
+			"Test": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "Platform/Framework"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-09-25T03:43:13Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

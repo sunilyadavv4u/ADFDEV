@@ -1,0 +1,43 @@
+{
+	"name": "LS_ADLS_Gen2_SPN",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"parameters": {
+			"url": {
+				"type": "string",
+				"defaultValue": "https://adlsdevcssbiplatformt.dfs.core.windows.net"
+			},
+			"tenant": {
+				"type": "string",
+				"defaultValue": "cdc5aeea-15c5-4db6-b079-fcadd2505dc2"
+			},
+			"servicePrincipalId": {
+				"type": "string",
+				"defaultValue": "8f485f1d-2ea8-4284-82fd-e2f1b96b1f48"
+			},
+			"secretName": {
+				"type": "string",
+				"defaultValue": "SAnDP-Torus-SNI-Int-Cert"
+			}
+		},
+		"annotations": [],
+		"type": "AzureBlobFS",
+		"typeProperties": {
+			"url": "@{linkedService().url}",
+			"tenant": "@{linkedService().tenant}",
+			"servicePrincipalId": "@{linkedService().servicePrincipalId}",
+			"servicePrincipalCredentialType": "ServicePrincipalCert",
+			"servicePrincipalCredential": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "LS_KV_CSSBIPlatform",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": {
+					"value": "@linkedService().secretName",
+					"type": "Expression"
+				}
+			}
+		}
+	}
+}

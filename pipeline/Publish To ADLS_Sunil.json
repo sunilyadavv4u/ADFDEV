@@ -1,0 +1,554 @@
+{
+	"name": "Publish To ADLS_Sunil",
+	"properties": {
+		"description": "Copy ADLS Folder",
+		"activities": [
+			{
+				"name": "GetAdlsFolderPaths",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Started Process AdlsFolderCopy",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderStoredProcedureName": "[dbo].[usp_getADLSFolderPaths]",
+						"storedProcedureParameters": {
+							"JobID": {
+								"type": "Int32",
+								"value": {
+									"value": "@{pipeline().parameters.jobid}",
+									"type": "Expression"
+								}
+							},
+							"ProcessStepId": {
+								"type": "Int32",
+								"value": {
+									"value": "@pipeline().parameters.id",
+									"type": "Expression"
+								}
+							}
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_SQL_OrchConfig",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "ExecuteAdlsFoldersPaths",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "GetAdlsFolderPaths",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('GetAdlsFolderPaths').output.value",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"activities": [
+						{
+							"name": "CopyAdlsFolders",
+							"type": "Copy",
+							"dependsOn": [
+								{
+									"activity": "StartedCopyAdlsFolders",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 3,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "ParquetSource",
+									"storeSettings": {
+										"type": "AzureBlobFSReadSettings",
+										"recursive": true,
+										"wildcardFolderPath": {
+											"value": "@item().adlsSrcFolderPath",
+											"type": "Expression"
+										},
+										"wildcardFileName": {
+											"value": "@item().adlsFileNamePattern",
+											"type": "Expression"
+										},
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "ParquetReadSettings"
+									}
+								},
+								"sink": {
+									"type": "ParquetSink",
+									"storeSettings": {
+										"type": "AzureBlobFSWriteSettings",
+										"maxConcurrentConnections": 1000,
+										"copyBehavior": "PreserveHierarchy",
+										"blockSizeInMB": 100
+									},
+									"formatSettings": {
+										"type": "ParquetWriteSettings"
+									}
+								},
+								"enableStaging": false,
+								"dataIntegrationUnits": {
+									"value": "@item().adfDataIntegrationUnit",
+									"type": "Expression"
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "DS_ADLSV2_Parquet_Folder",
+									"type": "DatasetReference",
+									"parameters": {
+										"Container": {
+											"value": "@item().adlsSrcContainer",
+											"type": "Expression"
+										},
+										"Directory": {
+											"value": "@item().adlsSrcFolderPath",
+											"type": "Expression"
+										},
+										"StorageAccountURL": {
+											"value": "@item().srcADLSURL",
+											"type": "Expression"
+										},
+										"StorageKeySecret": {
+											"value": "@item().srcADLSKeySecret",
+											"type": "Expression"
+										},
+										"StorageAccountSpnId": {
+											"value": "@item().srcADLSSpnId",
+											"type": "Expression"
+										},
+										"StorageAccountTenantId": {
+											"value": "@item().srcADLSTenantId",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "DS_ADLSV2_Parquet_Folder",
+									"type": "DatasetReference",
+									"parameters": {
+										"Container": {
+											"value": "@item().adlsTrgtContainer",
+											"type": "Expression"
+										},
+										"Directory": {
+											"value": "@item().adlsTrgtFolderPath",
+											"type": "Expression"
+										},
+										"StorageAccountURL": {
+											"value": "@item().tgtADLSURL",
+											"type": "Expression"
+										},
+										"StorageKeySecret": {
+											"value": "@item().tgtADLSKeySecret",
+											"type": "Expression"
+										},
+										"StorageAccountSpnId": {
+											"value": "@item().tgtADLSSpnId",
+											"type": "Expression"
+										},
+										"StorageAccountTenantId": {
+											"value": "@item().tgtADLSTenantId",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "StartedCopyAdlsFolders",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 1,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": {
+									"value": "dbo.UpdatePublishADLSProcessStatus",
+									"type": "Expression"
+								},
+								"storedProcedureParameters": {
+									"status": {
+										"value": "In Progress",
+										"type": "String"
+									},
+									"LastUpdatedDateTime": {
+										"value": {
+											"value": "@utcnow()",
+											"type": "Expression"
+										},
+										"type": "Datetime"
+									},
+									"JobID": {
+										"value": {
+											"value": "@{pipeline().parameters.jobid}",
+											"type": "Expression"
+										},
+										"type": "int"
+									},
+									"init": {
+										"value": "False",
+										"type": "boolean"
+									},
+									"ProcessID": {
+										"value": {
+											"value": "@item().processStepId",
+											"type": "Expression"
+										},
+										"type": "int"
+									},
+									"publishADLSProcessId": {
+										"value": {
+											"value": "@item().publishADLSProcessId",
+											"type": "Expression"
+										},
+										"type": "int"
+									},
+									"PublishProcessRunId": {
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										},
+										"type": "Guid"
+									},
+									"ProcessStepRunId": {
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										},
+										"type": "Guid"
+									},
+									"ErrorMessage": {
+										"value": null,
+										"type": "String"
+									},
+									"MasterPipelineRunID": {
+										"value": {
+											"value": "@pipeline().parameters.MasterPipelineRunID",
+											"type": "Expression"
+										},
+										"type": "Guid"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_SQL_Azure_Platform_Config",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Success - Copy",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "CopyAdlsFolders",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 1,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": {
+									"value": "dbo.UpdatePublishADLSProcessStatus",
+									"type": "Expression"
+								},
+								"storedProcedureParameters": {
+									"status": {
+										"value": "Succeeded",
+										"type": "String"
+									},
+									"LastUpdatedDateTime": {
+										"value": {
+											"value": "@utcnow()",
+											"type": "Expression"
+										},
+										"type": "Datetime"
+									},
+									"JobID": {
+										"value": {
+											"value": "@{pipeline().parameters.jobid}",
+											"type": "Expression"
+										},
+										"type": "int"
+									},
+									"init": {
+										"value": "False",
+										"type": "boolean"
+									},
+									"ProcessID": {
+										"value": {
+											"value": "@item().processStepId",
+											"type": "Expression"
+										},
+										"type": "int"
+									},
+									"publishADLSProcessId": {
+										"value": {
+											"value": "@item().publishADLSProcessId",
+											"type": "Expression"
+										},
+										"type": "int"
+									},
+									"ErrorMessage": {
+										"value": null,
+										"type": "String"
+									},
+									"MasterPipelineRunID": {
+										"value": {
+											"value": "@pipeline().parameters.MasterPipelineRunID",
+											"type": "Expression"
+										},
+										"type": "Guid"
+									},
+									"ProcessStepRunID": {
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										},
+										"type": "Guid"
+									},
+									"DataWrittenInBytes": {
+										"value": {
+											"value": "@activity('CopyAdlsFolders').output.dataWritten",
+											"type": "Expression"
+										},
+										"type": "Int64"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_SQL_Azure_Platform_Config",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Fail - Copy",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "CopyAdlsFolders",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 1,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": {
+									"value": "dbo.UpdatePublishADLSProcessStatus",
+									"type": "Expression"
+								},
+								"storedProcedureParameters": {
+									"status": {
+										"value": "Failed",
+										"type": "String"
+									},
+									"LastUpdatedDateTime": {
+										"value": {
+											"value": "@utcnow()",
+											"type": "Expression"
+										},
+										"type": "Datetime"
+									},
+									"JobID": {
+										"value": {
+											"value": "@{pipeline().parameters.jobid}",
+											"type": "Expression"
+										},
+										"type": "int"
+									},
+									"init": {
+										"value": "False",
+										"type": "boolean"
+									},
+									"ProcessID": {
+										"value": {
+											"value": "@item().processStepId",
+											"type": "Expression"
+										},
+										"type": "int"
+									},
+									"publishADLSProcessId": {
+										"value": {
+											"value": "@item().publishADLSProcessId",
+											"type": "Expression"
+										},
+										"type": "int"
+									},
+									"ErrorMessage": {
+										"value": {
+											"value": "@activity('CopyAdlsFolders').error.message",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"MasterPipelineRunID": {
+										"value": {
+											"value": "@pipeline().parameters.MasterPipelineRunID",
+											"type": "Expression"
+										},
+										"type": "Guid"
+									},
+									"ProcessStepRunID": {
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										},
+										"type": "Guid"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_SQL_Azure_Platform_Config",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Started Process AdlsFolderCopy",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 1,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": {
+						"value": "dbo.UpdateProcessStepsStatus",
+						"type": "Expression"
+					},
+					"storedProcedureParameters": {
+						"status": {
+							"value": "In Progress",
+							"type": "String"
+						},
+						"LastUpdatedDateTime": {
+							"value": {
+								"value": "@utcnow()",
+								"type": "Expression"
+							},
+							"type": "Datetime"
+						},
+						"JobID": {
+							"value": {
+								"value": "@{pipeline().parameters.jobid}",
+								"type": "Expression"
+							},
+							"type": "int"
+						},
+						"init": {
+							"value": "False",
+							"type": "boolean"
+						},
+						"ProcessID": {
+							"value": {
+								"value": "@pipeline().parameters.id",
+								"type": "Expression"
+							},
+							"type": "int"
+						},
+						"ProcessStepRunID": {
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
+							"type": "Guid"
+						},
+						"MasterPipelineRunID": {
+							"value": {
+								"value": "@pipeline().parameters.MasterPipelineRunId",
+								"type": "Expression"
+							},
+							"type": "Guid"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_SQL_Azure_Platform_Config",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"jobid": {
+				"type": "int"
+			},
+			"MasterPipelineRunID": {
+				"type": "string"
+			},
+			"id": {
+				"type": "int"
+			}
+		},
+		"folder": {
+			"name": "Sunil/ProcessSteps_sunil/PublishADLS"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-09-25T03:43:13Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

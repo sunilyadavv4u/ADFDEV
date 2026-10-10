@@ -1,0 +1,1045 @@
+{
+	"name": "Notebook Process Execution by Priority_Sunil",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get Notebooks to Process",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 1,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderStoredProcedureName": "[dbo].[getNotebookExecutionProcessByPriority]",
+						"storedProcedureParameters": {
+							"ID": {
+								"type": "Int32",
+								"value": {
+									"value": "@pipeline().parameters.id",
+									"type": "Expression"
+								}
+							},
+							"JobId": {
+								"type": "Int32",
+								"value": {
+									"value": "@pipeline().parameters.jobid",
+									"type": "Expression"
+								}
+							},
+							"Priority": {
+								"type": "Int32",
+								"value": {
+									"value": "@pipeline().parameters.priority",
+									"type": "Expression"
+								}
+							}
+						},
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_SQL_OrchConfig",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Process Notebooks",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get Notebooks to Process",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get Notebooks to Process').output.value",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"batchCount": 30,
+					"activities": [
+						{
+							"name": "Started Notebook Processing",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Wait for Batch",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 1,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": {
+									"value": "dbo.UpdateNotebookProcessStatus",
+									"type": "Expression"
+								},
+								"storedProcedureParameters": {
+									"status": {
+										"value": "In Progress",
+										"type": "String"
+									},
+									"LastUpdatedDateTime": {
+										"value": {
+											"value": "@utcnow()",
+											"type": "Expression"
+										},
+										"type": "Datetime"
+									},
+									"JobID": {
+										"value": {
+											"value": "@{pipeline().parameters.jobid}",
+											"type": "Expression"
+										},
+										"type": "int"
+									},
+									"init": {
+										"value": "False",
+										"type": "boolean"
+									},
+									"ProcessID": {
+										"value": {
+											"value": "@item().processStepId",
+											"type": "Expression"
+										},
+										"type": "int"
+									},
+									"NotebookProcessId": {
+										"value": {
+											"value": "@item().NotebookProcessId",
+											"type": "Expression"
+										},
+										"type": "int"
+									},
+									"NotebookProcessRunId": {
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										},
+										"type": "Guid"
+									},
+									"ProcessStepRunId": {
+										"value": {
+											"value": "@pipeline().parameters.ProcessStepRunId",
+											"type": "Expression"
+										},
+										"type": "Guid"
+									},
+									"ErrorMessage": {
+										"value": null,
+										"type": "String"
+									},
+									"MasterPipelineRunID": {
+										"value": {
+											"value": "@pipeline().parameters.MasterPipelineRunID",
+											"type": "Expression"
+										},
+										"type": "Guid"
+									},
+									"retryAttempt": {
+										"value": "0",
+										"type": "Int32"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_SQL_Azure_Platform_Config",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "IsDQCheckEnabled",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "Switch Retry Notebook",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@item().IsDQCheck",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Notebook - Generic Validation",
+										"description": "",
+										"type": "DatabricksNotebook",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "7.00:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [
+											{
+												"name": "NotebookPath",
+												"value": "@concat(item().notebookPath,item().notebookName)"
+											}
+										],
+										"typeProperties": {
+											"notebookPath": "/Users/v-suniyadav_jit@prdtrs01.prod.outlook.com/ProjectLearning/DQ Check/Generic_and_UserDefine_Validations",
+											"baseParameters": {
+												"datasetId": {
+													"value": "@{Item().dqDataSetId}",
+													"type": "Expression"
+												},
+												"subProcessId": {
+													"value": "@{item().NotebookProcessId}",
+													"type": "Expression"
+												},
+												"processType": "TransformationNotebook",
+												"runId": {
+													"value": "@{Item().runId}",
+													"type": "Expression"
+												},
+												"pipelineRunId": {
+													"value": "@{pipeline().RunId}",
+													"type": "Expression"
+												},
+												"objectName": {
+													"value": "@item().notebookName",
+													"type": "Expression"
+												}
+											}
+										},
+										"linkedServiceName": {
+											"referenceName": "LS_DBX_CSSBIPlatform",
+											"type": "LinkedServiceReference",
+											"parameters": {
+												"ClusterId": "@item().CLusterId",
+												"WorkspaceUrl": "@Item().WorkspaceUrl",
+												"KvPasswordSecret": "@item().KvPasswordSecret"
+											}
+										}
+									},
+									{
+										"name": "Fail - GenericValidation",
+										"type": "SqlServerStoredProcedure",
+										"dependsOn": [
+											{
+												"activity": "Notebook - Generic Validation",
+												"dependencyConditions": [
+													"Failed"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "7.00:00:00",
+											"retry": 1,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"storedProcedureName": {
+												"value": "dbo.UpdateNotebookProcessStatus",
+												"type": "Expression"
+											},
+											"storedProcedureParameters": {
+												"status": {
+													"value": "Failed",
+													"type": "String"
+												},
+												"LastUpdatedDateTime": {
+													"value": {
+														"value": "@utcnow()",
+														"type": "Expression"
+													},
+													"type": "Datetime"
+												},
+												"JobID": {
+													"value": {
+														"value": "@{pipeline().parameters.jobid}",
+														"type": "Expression"
+													},
+													"type": "int"
+												},
+												"init": {
+													"value": "False",
+													"type": "boolean"
+												},
+												"ProcessID": {
+													"value": {
+														"value": "@item().processStepId",
+														"type": "Expression"
+													},
+													"type": "int"
+												},
+												"NotebookProcessId": {
+													"value": {
+														"value": "@item().NotebookProcessId",
+														"type": "Expression"
+													},
+													"type": "int"
+												},
+												"ErrorMessage": {
+													"value": {
+														"value": "@concat('RunError: ',activity('Notebook - Generic Validation').output.runError,';  runPageUrl:',activity('Notebook - Generic Validation').output.runPageUrl)",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"MasterPipelineRunID": {
+													"value": {
+														"value": "@pipeline().parameters.MasterPipelineRunID",
+														"type": "Expression"
+													},
+													"type": "Guid"
+												},
+												"ProcessStepRunID": {
+													"value": {
+														"value": "@pipeline().parameters.ProcessStepRunId",
+														"type": "Expression"
+													},
+													"type": "Guid"
+												},
+												"NotebookProcessRunID": {
+													"value": {
+														"value": "@pipeline().RunId",
+														"type": "Expression"
+													},
+													"type": "Guid"
+												},
+												"RetryAttempt": {
+													"value": null,
+													"type": "Int32"
+												}
+											}
+										},
+										"linkedServiceName": {
+											"referenceName": "LS_SQL_Azure_Platform_Config",
+											"type": "LinkedServiceReference"
+										}
+									}
+								]
+							}
+						},
+						{
+							"name": "Success - Notebook Processing",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "IsDQCheckEnabled",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 1,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": {
+									"value": "dbo.UpdateNotebookProcessStatus",
+									"type": "Expression"
+								},
+								"storedProcedureParameters": {
+									"status": {
+										"value": "Succeeded",
+										"type": "String"
+									},
+									"LastUpdatedDateTime": {
+										"value": {
+											"value": "@utcnow()",
+											"type": "Expression"
+										},
+										"type": "Datetime"
+									},
+									"JobID": {
+										"value": {
+											"value": "@{pipeline().parameters.jobid}",
+											"type": "Expression"
+										},
+										"type": "int"
+									},
+									"init": {
+										"value": "False",
+										"type": "boolean"
+									},
+									"ProcessID": {
+										"value": {
+											"value": "@item().processStepId",
+											"type": "Expression"
+										},
+										"type": "int"
+									},
+									"NotebookProcessId": {
+										"value": {
+											"value": "@item().NotebookProcessId",
+											"type": "Expression"
+										},
+										"type": "int"
+									},
+									"ErrorMessage": {
+										"value": null,
+										"type": "String"
+									},
+									"MasterPipelineRunID": {
+										"value": {
+											"value": "@pipeline().parameters.MasterPipelineRunID",
+											"type": "Expression"
+										},
+										"type": "Guid"
+									},
+									"ProcessStepRunID": {
+										"value": {
+											"value": "@pipeline().parameters.ProcessStepRunId",
+											"type": "Expression"
+										},
+										"type": "Guid"
+									},
+									"NotebookProcessRunID": {
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										},
+										"type": "Guid"
+									},
+									"retryAttempt": {
+										"value": null,
+										"type": "Int32"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_SQL_Azure_Platform_Config",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Switch Retry Notebook",
+							"type": "Switch",
+							"dependsOn": [
+								{
+									"activity": "Started Notebook Processing",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"on": {
+									"value": "@item().IsRetry",
+									"type": "Expression"
+								},
+								"cases": [
+									{
+										"value": "true",
+										"activities": [
+											{
+												"name": "Retry - Run Notebook",
+												"description": "",
+												"type": "DatabricksNotebook",
+												"dependsOn": [
+													{
+														"activity": "Wait 120 seconds before retry",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "7.00:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 120,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [
+													{
+														"name": "NotebookPath",
+														"value": "@concat(item().notebookPath,item().notebookName)"
+													}
+												],
+												"typeProperties": {
+													"notebookPath": {
+														"value": "@concat(item().notebookPath,item().notebookName)",
+														"type": "Expression"
+													},
+													"baseParameters": {
+														"jobId": {
+															"value": "@{pipeline().parameters.jobid}",
+															"type": "Expression"
+														},
+														"MasterJobPipelineRunId": {
+															"value": "@pipeline().parameters.MasterPipelineRunID",
+															"type": "Expression"
+														},
+														"pipelineRunId": {
+															"value": "@pipeline().RunId",
+															"type": "Expression"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "LS_DBX_CSSBIPlatform",
+													"type": "LinkedServiceReference",
+													"parameters": {
+														"ClusterId": {
+															"value": "@item().CLusterId",
+															"type": "Expression"
+														},
+														"WorkspaceUrl": {
+															"value": "@Item().WorkspaceUrl",
+															"type": "Expression"
+														},
+														"KvPasswordSecret": {
+															"value": "@item().KvPasswordSecret",
+															"type": "Expression"
+														}
+													}
+												}
+											},
+											{
+												"name": "Fail - Notebook Processing with Retry",
+												"type": "SqlServerStoredProcedure",
+												"dependsOn": [
+													{
+														"activity": "Retry - Run Notebook",
+														"dependencyConditions": [
+															"Failed"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "7.00:00:00",
+													"retry": 1,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"storedProcedureName": {
+														"value": "dbo.UpdateNotebookProcessStatus",
+														"type": "Expression"
+													},
+													"storedProcedureParameters": {
+														"status": {
+															"value": "Failed",
+															"type": "String"
+														},
+														"LastUpdatedDateTime": {
+															"value": {
+																"value": "@utcnow()",
+																"type": "Expression"
+															},
+															"type": "Datetime"
+														},
+														"JobID": {
+															"value": {
+																"value": "@{pipeline().parameters.jobid}",
+																"type": "Expression"
+															},
+															"type": "int"
+														},
+														"init": {
+															"value": "False",
+															"type": "boolean"
+														},
+														"ProcessID": {
+															"value": {
+																"value": "@item().processStepId",
+																"type": "Expression"
+															},
+															"type": "int"
+														},
+														"NotebookProcessId": {
+															"value": {
+																"value": "@item().NotebookProcessId",
+																"type": "Expression"
+															},
+															"type": "int"
+														},
+														"ErrorMessage": {
+															"value": {
+																"value": "@concat('RunError: ',activity('Retry - Run Notebook').output.runError,'; RunPageUrl: ',activity('Retry - Run Notebook').output.runPageUrl)",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"MasterPipelineRunID": {
+															"value": {
+																"value": "@pipeline().parameters.MasterPipelineRunID",
+																"type": "Expression"
+															},
+															"type": "Guid"
+														},
+														"ProcessStepRunID": {
+															"value": {
+																"value": "@pipeline().parameters.ProcessStepRunId",
+																"type": "Expression"
+															},
+															"type": "Guid"
+														},
+														"NotebookProcessRunID": {
+															"value": {
+																"value": "@pipeline().RunId",
+																"type": "Expression"
+															},
+															"type": "Guid"
+														},
+														"retryAttempt": {
+															"value": "1",
+															"type": "Int32"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "LS_SQL_Azure_Platform_Config",
+													"type": "LinkedServiceReference"
+												}
+											},
+											{
+												"name": "Run Notebook",
+												"description": "",
+												"type": "DatabricksNotebook",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "7.00:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 120,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [
+													{
+														"name": "NotebookPath",
+														"value": "@concat(item().notebookPath,item().notebookName)"
+													}
+												],
+												"typeProperties": {
+													"notebookPath": {
+														"value": "@concat(item().notebookPath,item().notebookName)",
+														"type": "Expression"
+													},
+													"baseParameters": {
+														"jobId": {
+															"value": "@{pipeline().parameters.jobid}",
+															"type": "Expression"
+														},
+														"MasterJobPipelineRunId": {
+															"value": "@pipeline().parameters.MasterPipelineRunID",
+															"type": "Expression"
+														},
+														"pipelineRunId": {
+															"value": "@pipeline().RunId",
+															"type": "Expression"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "LS_DBX_CSSBIPlatform",
+													"type": "LinkedServiceReference",
+													"parameters": {
+														"ClusterId": {
+															"value": "@item().CLusterId",
+															"type": "Expression"
+														},
+														"WorkspaceUrl": {
+															"value": "@Item().WorkspaceUrl",
+															"type": "Expression"
+														},
+														"KvPasswordSecret": {
+															"value": "@item().KvPasswordSecret",
+															"type": "Expression"
+														}
+													}
+												}
+											},
+											{
+												"name": "update retry attempt",
+												"type": "SqlServerStoredProcedure",
+												"dependsOn": [
+													{
+														"activity": "Retry - Run Notebook",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "7.00:00:00",
+													"retry": 1,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"storedProcedureName": {
+														"value": "dbo.UpdateNotebookProcessStatus",
+														"type": "Expression"
+													},
+													"storedProcedureParameters": {
+														"status": {
+															"value": null,
+															"type": "String"
+														},
+														"LastUpdatedDateTime": {
+															"value": {
+																"value": "@utcnow()",
+																"type": "Expression"
+															},
+															"type": "Datetime"
+														},
+														"JobID": {
+															"value": {
+																"value": "@{pipeline().parameters.jobid}",
+																"type": "Expression"
+															},
+															"type": "int"
+														},
+														"init": {
+															"value": "False",
+															"type": "boolean"
+														},
+														"ProcessID": {
+															"value": {
+																"value": "@item().processStepId",
+																"type": "Expression"
+															},
+															"type": "int"
+														},
+														"NotebookProcessId": {
+															"value": {
+																"value": "@item().NotebookProcessId",
+																"type": "Expression"
+															},
+															"type": "int"
+														},
+														"ErrorMessage": {
+															"value": null,
+															"type": "String"
+														},
+														"MasterPipelineRunID": {
+															"value": {
+																"value": "@pipeline().parameters.MasterPipelineRunID",
+																"type": "Expression"
+															},
+															"type": "Guid"
+														},
+														"ProcessStepRunID": {
+															"value": {
+																"value": "@pipeline().parameters.ProcessStepRunId",
+																"type": "Expression"
+															},
+															"type": "Guid"
+														},
+														"NotebookProcessRunID": {
+															"value": {
+																"value": "@pipeline().RunId",
+																"type": "Expression"
+															},
+															"type": "Guid"
+														},
+														"retryAttempt": {
+															"value": "1",
+															"type": "Int32"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "LS_SQL_Azure_Platform_Config",
+													"type": "LinkedServiceReference"
+												}
+											},
+											{
+												"name": "Wait 120 seconds before retry",
+												"type": "Wait",
+												"dependsOn": [
+													{
+														"activity": "Stop if notebook Cancelled",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"userProperties": [],
+												"typeProperties": {
+													"waitTimeInSeconds": 120
+												}
+											},
+											{
+												"name": "Stop if notebook Cancelled",
+												"type": "Script",
+												"dependsOn": [
+													{
+														"activity": "Run Notebook",
+														"dependencyConditions": [
+															"Failed"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "7.00:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"linkedServiceName": {
+													"referenceName": "LS_SQL_Azure_Platform_Config",
+													"type": "LinkedServiceReference"
+												},
+												"typeProperties": {
+													"scripts": [
+														{
+															"type": "NonQuery",
+															"text": {
+																"value": "IF('@{activity('Run Notebook').Status}'='Cancelled')\n   THROW 51000, 'Noteook is Cancelled', 1;",
+																"type": "Expression"
+															}
+														}
+													]
+												}
+											}
+										]
+									},
+									{
+										"value": "false",
+										"activities": [
+											{
+												"name": "Run Notebook without Retry",
+												"description": "",
+												"type": "DatabricksNotebook",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "7.00:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [
+													{
+														"name": "NotebookPath",
+														"value": "@concat(item().notebookPath,item().notebookName)"
+													}
+												],
+												"typeProperties": {
+													"notebookPath": {
+														"value": "@concat(item().notebookPath,item().notebookName)",
+														"type": "Expression"
+													},
+													"baseParameters": {
+														"jobId": {
+															"value": "@{pipeline().parameters.jobid}",
+															"type": "Expression"
+														},
+														"MasterJobPipelineRunId": {
+															"value": "@pipeline().parameters.MasterPipelineRunID",
+															"type": "Expression"
+														},
+														"pipelineRunId": {
+															"value": "@pipeline().RunId",
+															"type": "Expression"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "LS_DBX_CSSBIPlatform",
+													"type": "LinkedServiceReference",
+													"parameters": {
+														"ClusterId": {
+															"value": "@item().CLusterId",
+															"type": "Expression"
+														},
+														"WorkspaceUrl": {
+															"value": "@Item().WorkspaceUrl",
+															"type": "Expression"
+														},
+														"KvPasswordSecret": {
+															"value": "@item().KvPasswordSecret",
+															"type": "Expression"
+														}
+													}
+												}
+											},
+											{
+												"name": "Fail - Notebook Processing without Retry",
+												"type": "SqlServerStoredProcedure",
+												"dependsOn": [
+													{
+														"activity": "Run Notebook without Retry",
+														"dependencyConditions": [
+															"Failed"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "7.00:00:00",
+													"retry": 1,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"storedProcedureName": {
+														"value": "dbo.UpdateNotebookProcessStatus",
+														"type": "Expression"
+													},
+													"storedProcedureParameters": {
+														"status": {
+															"value": "Failed",
+															"type": "String"
+														},
+														"LastUpdatedDateTime": {
+															"value": {
+																"value": "@utcnow()",
+																"type": "Expression"
+															},
+															"type": "Datetime"
+														},
+														"JobID": {
+															"value": {
+																"value": "@{pipeline().parameters.jobid}",
+																"type": "Expression"
+															},
+															"type": "int"
+														},
+														"init": {
+															"value": "False",
+															"type": "boolean"
+														},
+														"ProcessID": {
+															"value": {
+																"value": "@item().processStepId",
+																"type": "Expression"
+															},
+															"type": "int"
+														},
+														"NotebookProcessId": {
+															"value": {
+																"value": "@item().NotebookProcessId",
+																"type": "Expression"
+															},
+															"type": "int"
+														},
+														"ErrorMessage": {
+															"value": {
+																"value": "@concat('RunError: ',activity('Run Notebook without Retry').output.runError,';  RunPageUrl: ',activity('Run Notebook without Retry').output.runPageUrl)",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"MasterPipelineRunID": {
+															"value": {
+																"value": "@pipeline().parameters.MasterPipelineRunID",
+																"type": "Expression"
+															},
+															"type": "Guid"
+														},
+														"ProcessStepRunID": {
+															"value": {
+																"value": "@pipeline().parameters.ProcessStepRunId",
+																"type": "Expression"
+															},
+															"type": "Guid"
+														},
+														"NotebookProcessRunID": {
+															"value": {
+																"value": "@pipeline().RunId",
+																"type": "Expression"
+															},
+															"type": "Guid"
+														},
+														"RetryAttempt": {
+															"value": null,
+															"type": "Int32"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "LS_SQL_Azure_Platform_Config",
+													"type": "LinkedServiceReference"
+												}
+											}
+										]
+									}
+								]
+							}
+						},
+						{
+							"name": "Wait for Batch",
+							"type": "Wait",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"waitTimeInSeconds": {
+									"value": "@item().waitTime",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"id": {
+				"type": "int"
+			},
+			"jobid": {
+				"type": "int"
+			},
+			"priority": {
+				"type": "int"
+			},
+			"ProcessStepRunId": {
+				"type": "string"
+			},
+			"MasterPipelineRunID": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"RetryAttempt": {
+				"type": "String",
+				"defaultValue": "0"
+			}
+		},
+		"folder": {
+			"name": "Sunil/ProcessSteps_sunil/NotebookProcess"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-09-25T03:43:13Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

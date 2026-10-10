@@ -1,0 +1,56 @@
+{
+	"name": "adf_schema_drift_practice",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "DS_SchemaDriftExample",
+						"type": "DatasetReference"
+					},
+					"name": "ADLSSrc"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "DS_SchemaDrift_sql",
+						"type": "DatasetReference"
+					},
+					"name": "TargetSQLServer"
+				}
+			],
+			"transformations": [],
+			"scriptLines": [
+				"source(output(",
+				"          customer_id as short,",
+				"          customer_name as string,",
+				"          city as string,",
+				"          email as string,",
+				"          loyalty_tier as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> ADLSSrc",
+				"ADLSSrc sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          customer_id as integer,",
+				"          customer_name as string,",
+				"          city as string,",
+				"          email as string,",
+				"          loyalty_tier as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> TargetSQLServer"
+			]
+		}
+	}
+}

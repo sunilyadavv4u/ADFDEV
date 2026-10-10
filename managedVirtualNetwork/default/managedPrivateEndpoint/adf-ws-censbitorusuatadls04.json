@@ -1,0 +1,7 @@
+{
+	"name": "adf-ws-censbitorusuatadls04",
+	"properties": {
+		"privateLinkResourceId": "/subscriptions/863eb5be-215b-4075-82db-915a8e759098/resourceGroups/censbitorusuatrg03/providers/Microsoft.Storage/storageAccounts/censbitorusuatadls04",
+		"groupId": "dfs"
+	}
+}

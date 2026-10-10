@@ -1,0 +1,394 @@
+{
+	"name": "Copy data from AzureSQL to Gen2",
+	"properties": {
+		"activities": [
+			{
+				"name": "Switch based on authentication",
+				"type": "Switch",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"on": {
+						"value": "@pipeline().parameters.SrcAuthenticationType",
+						"type": "Expression"
+					},
+					"cases": [
+						{
+							"value": "MANAGEDIDENTITY",
+							"activities": [
+								{
+									"name": "copy data based MI",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "AzureSqlSource",
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "DS_AzureSQL_MI",
+											"type": "DatasetReference",
+											"parameters": {
+												"ServerName": {
+													"value": "@pipeline().parameters.srcserver",
+													"type": "Expression"
+												},
+												"DBName": {
+													"value": "@pipeline().parameters.srcDatabaseName",
+													"type": "Expression"
+												},
+												"TableSchema": {
+													"value": "@pipeline().parameters.SRCSchemaName",
+													"type": "Expression"
+												},
+												"TableName": "@pipeline().parameters.SRCTableName"
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DS_ADLSgen2_parquet_MI",
+											"type": "DatasetReference",
+											"parameters": {
+												"srvername": {
+													"value": "@pipeline().parameters.tgtServerName",
+													"type": "Expression"
+												},
+												"containername": {
+													"value": "@pipeline().parameters.tgtContainerName",
+													"type": "Expression"
+												},
+												"directory": {
+													"value": "@pipeline().parameters.tgtDirectory",
+													"type": "Expression"
+												},
+												"filename": {
+													"value": "@pipeline().parameters.tgtFileName",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"value": "SPN",
+							"activities": [
+								{
+									"name": "copy data based SPN",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "AzureSqlSource",
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "DS_AzureSQL_SPN",
+											"type": "DatasetReference",
+											"parameters": {
+												"server": {
+													"value": "@pipeline().parameters.srcserver",
+													"type": "Expression"
+												},
+												"databasename": {
+													"value": "@pipeline().parameters.srcDatabaseName",
+													"type": "Expression"
+												},
+												"Tenantid": {
+													"value": "@pipeline().parameters.SRCTenant",
+													"type": "Expression"
+												},
+												"SPNID": {
+													"value": "@pipeline().parameters.SPNUser",
+													"type": "Expression"
+												},
+												"SPN_Secret": {
+													"value": "@pipeline().parameters.SPNSecret",
+													"type": "Expression"
+												},
+												"tbl_schema": {
+													"value": "@pipeline().parameters.SRCSchemaName",
+													"type": "Expression"
+												},
+												"tbl_name": {
+													"value": "@pipeline().parameters.SRCTableName",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DS_ADLSgen2_parquet_MI",
+											"type": "DatasetReference",
+											"parameters": {
+												"srvername": {
+													"value": "@pipeline().parameters.tgtServerName",
+													"type": "Expression"
+												},
+												"containername": {
+													"value": "@pipeline().parameters.tgtContainerName",
+													"type": "Expression"
+												},
+												"directory": {
+													"value": "@pipeline().parameters.tgtDirectory",
+													"type": "Expression"
+												},
+												"filename": {
+													"value": "@pipeline().parameters.tgtFileName",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"value": "USER_PASSWORD",
+							"activities": [
+								{
+									"name": "copy data based UIDPassword",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "AzureSqlSource",
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "DS_AzureSQL",
+											"type": "DatasetReference",
+											"parameters": {
+												"servername": {
+													"value": "@pipeline().parameters.srcserver",
+													"type": "Expression"
+												},
+												"databasename": {
+													"value": "@pipeline().parameters.srcDatabaseName",
+													"type": "Expression"
+												},
+												"username": {
+													"value": "@pipeline().parameters.srcUID",
+													"type": "Expression"
+												},
+												"PasswordSecret": {
+													"value": "@pipeline().parameters.srcPWD",
+													"type": "Expression"
+												},
+												"tableschema": {
+													"value": "@pipeline().parameters.SRCSchemaName",
+													"type": "Expression"
+												},
+												"table_name": {
+													"value": "@pipeline().parameters.SRCTableName",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DS_ADLSgen2_parquet_MI",
+											"type": "DatasetReference",
+											"parameters": {
+												"srvername": {
+													"value": "@pipeline().parameters.tgtServerName",
+													"type": "Expression"
+												},
+												"containername": {
+													"value": "@pipeline().parameters.tgtContainerName",
+													"type": "Expression"
+												},
+												"directory": {
+													"value": "@pipeline().parameters.tgtDirectory",
+													"type": "Expression"
+												},
+												"filename": {
+													"value": "@pipeline().parameters.tgtFileName",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"ingestionid": {
+				"type": "Int",
+				"defaultValue": 0
+			},
+			"jobid": {
+				"type": "Int",
+				"defaultValue": 0
+			},
+			"srcserver": {
+				"type": "String"
+			},
+			"srcDatabaseName": {
+				"type": "String"
+			},
+			"srcType": {
+				"type": "String"
+			},
+			"SrcAuthenticationType": {
+				"type": "String"
+			},
+			"srcUID": {
+				"type": "String"
+			},
+			"srcPWD": {
+				"type": "String"
+			},
+			"SRCTenant": {
+				"type": "String"
+			},
+			"SPNUser": {
+				"type": "String"
+			},
+			"SPNSecret": {
+				"type": "String"
+			},
+			"SRCSchemaName": {
+				"type": "String"
+			},
+			"SRCTableName": {
+				"type": "String"
+			},
+			"SRCQuery": {
+				"type": "String"
+			},
+			"srcContainerName": {
+				"type": "String"
+			},
+			"srcDirectory": {
+				"type": "String"
+			},
+			"srcFileName": {
+				"type": "String"
+			},
+			"tgtType": {
+				"type": "String"
+			},
+			"tgtAuthenticationType": {
+				"type": "String"
+			},
+			"tgtContainerName": {
+				"type": "String"
+			},
+			"tgtDirectory": {
+				"type": "String"
+			},
+			"tgtFileName": {
+				"type": "String"
+			},
+			"isActive": {
+				"type": "Bool",
+				"defaultValue": true
+			},
+			"tgtServerName": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "RealtimeScenario"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-10-03T17:02:26Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

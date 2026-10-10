@@ -1,0 +1,37 @@
+{
+	"name": "PL_SchemaDrift_DataFlow",
+	"properties": {
+		"activities": [
+			{
+				"name": "Schema drift",
+				"type": "ExecuteDataFlow",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataflow": {
+						"referenceName": "adf_schema_drift_practice",
+						"type": "DataFlowReference"
+					},
+					"compute": {
+						"coreCount": 8,
+						"computeType": "General"
+					},
+					"traceLevel": "Fine"
+				}
+			}
+		],
+		"folder": {
+			"name": "RealtimeScenario"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-09-28T03:45:44Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

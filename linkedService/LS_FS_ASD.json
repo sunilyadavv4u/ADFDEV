@@ -1,0 +1,17 @@
+{
+	"name": "LS_FS_ASD",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "FileServer",
+		"typeProperties": {
+			"host": "\\\\LAPTOP-0K5EJVI4\\NOTES",
+			"userId": "laptop-0k5ejvi4\\mayur",
+			"encryptedCredential": "eyJDcmVkZW50aWFsSWQiOiIxYTBmNWUwYS1lYmNjLTQ0YzYtYThlOC00Y2NiODI5NjMyNmYiLCJWZXJzaW9uIjoiMi4wIiwiQ2xhc3NUeXBlIjoiTWljcm9zb2Z0LkRhdGFQcm94eS5Db3JlLkludGVyU2VydmljZURhdGFDb250cmFjdC5DcmVkZW50aWFsU1UwNkNZMTQifQ=="
+		},
+		"connectVia": {
+			"referenceName": "self-hosted-IR-asd",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}

@@ -1,0 +1,586 @@
+{
+	"name": "Copy - Source to Target by SourceType_Sunil",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get Cluster Details",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "select ClusterId,WorkspaceUrl, kvPasswordSecret from metadata.Tbl_dataSystem \n where srcType='DataBricksCluster' and SystemName='ADB_CSSBIPlatform_Ingestion'\n",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_Metadata",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": true
+				}
+			},
+			{
+				"name": "Get Data to Process Based on Batch Size",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Get Cluster Details",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderStoredProcedureName": "[dbo].[batchCopyProcessviaSP]",
+						"storedProcedureParameters": {
+							"ID": {
+								"type": "Int32",
+								"value": {
+									"value": "@pipeline().parameters.Id",
+									"type": "Expression"
+								}
+							},
+							"JobId": {
+								"type": "Int32",
+								"value": {
+									"value": "@pipeline().parameters.JobId",
+									"type": "Expression"
+								}
+							},
+							"MasterPipelineRunID": {
+								"type": "Guid",
+								"value": {
+									"value": "@pipeline().parameters.MasterPipelineRunID",
+									"type": "Expression"
+								}
+							},
+							"ProcessName": {
+								"type": "String",
+								"value": "Ingestion"
+							},
+							"SourceType": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().parameters.SourceType",
+									"type": "Expression"
+								}
+							},
+							"Type": {
+								"type": "String",
+								"value": "ObjectList"
+							}
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_Metadata",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Ingest Sources",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get Data to Process Based on Batch Size",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get Data to Process Based on Batch Size').output.value",
+						"type": "Expression"
+					},
+					"batchCount": 30,
+					"activities": [
+						{
+							"name": "Process Data Copy and PII Scrubbing",
+							"type": "Switch",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"on": {
+									"value": "@item().RunDetails",
+									"type": "Expression"
+								},
+								"cases": [
+									{
+										"value": "Process Ingestion",
+										"activities": [
+											{
+												"name": "Execute Ingestion type",
+												"type": "ExecutePipeline",
+												"dependsOn": [],
+												"policy": {
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"pipeline": {
+														"referenceName": "Execute Ingestion Types_Sunil",
+														"type": "PipelineReference"
+													},
+													"waitOnCompletion": true,
+													"parameters": {
+														"IngestionProcessId": {
+															"value": "@item().IngestionProcessId",
+															"type": "Expression"
+														},
+														"jobId": {
+															"value": "@item().jobId",
+															"type": "Expression"
+														},
+														"processStepId": {
+															"value": "@item().processStepId",
+															"type": "Expression"
+														},
+														"srcName": {
+															"value": "@item().srcName",
+															"type": "Expression"
+														},
+														"srcType": {
+															"value": "@item().srcType",
+															"type": "Expression"
+														},
+														"srcQuery": {
+															"value": "@item().srcQuery",
+															"type": "Expression"
+														},
+														"srcProcessUsed": {
+															"value": "@item().srcProcessUsed",
+															"type": "Expression"
+														},
+														"srcServerName": {
+															"value": "@item().srcServerName",
+															"type": "Expression"
+														},
+														"srcDatabaseName": {
+															"value": "@item().srcDatabaseName",
+															"type": "Expression"
+														},
+														"tenantId": {
+															"value": "@item().tenantId",
+															"type": "Expression"
+														},
+														"fileFormat": {
+															"value": "@item().fileFormat",
+															"type": "Expression"
+														},
+														"fileDelimiter": {
+															"value": "@item().fileDelimiter",
+															"type": "Expression"
+														},
+														"fileSourceMountPath": {
+															"value": "@item().fileSourceMountPath",
+															"type": "Expression"
+														},
+														"fileSourceFilePath": {
+															"value": "@item().fileSourceFilePath",
+															"type": "Expression"
+														},
+														"fileSourceFileName": {
+															"value": "@item().fileSourceFileName",
+															"type": "Expression"
+														},
+														"fileTargetMountPath": {
+															"value": "@item().fileTargetMountPath",
+															"type": "Expression"
+														},
+														"kvUserNameSecret": {
+															"value": "@item().kvUserNameSecret",
+															"type": "Expression"
+														},
+														"kvPasswordSecret": {
+															"value": "@item().kvPasswordSecret",
+															"type": "Expression"
+														},
+														"tgtFileSystem": {
+															"value": "@item().tgtFileSystem",
+															"type": "Expression"
+														},
+														"tgtDirectory": {
+															"value": "@item().tgtDirectory",
+															"type": "Expression"
+														},
+														"tgtFileName": {
+															"value": "@item().tgtFileName",
+															"type": "Expression"
+														},
+														"tgtFileFormat": {
+															"value": "@item().tgtFileFormat",
+															"type": "Expression"
+														},
+														"isDistributed": {
+															"value": "@item().isDistributed",
+															"type": "Expression"
+														},
+														"onFailureFailParent": {
+															"value": "@item().onFailureFailParent",
+															"type": "Expression"
+														},
+														"IsActive": {
+															"value": "@item().IsActive",
+															"type": "Expression"
+														},
+														"IsSpnAuth": {
+															"value": "@item().IsSpnAuth",
+															"type": "Expression"
+														},
+														"AzSql_Auth_Replica": {
+															"value": "@item().AzSql_Auth_Replica",
+															"type": "Expression"
+														},
+														"fileSrcColList": {
+															"value": "@item().fileSrcColList",
+															"type": "Expression"
+														},
+														"ADBClusterId": {
+															"value": "@activity('Get Cluster Details').output.firstRow.ClusterId",
+															"type": "Expression"
+														},
+														"ADBWorkspaceUrl": {
+															"value": "@activity('Get Cluster Details').output.firstRow.WorkspaceUrl",
+															"type": "Expression"
+														},
+														"ADBKvPasswordSecret": {
+															"value": "@activity('Get Cluster Details').output.firstRow.KvPasswordSecret",
+															"type": "Expression"
+														},
+														"MasterPipelineRunID": {
+															"value": "@pipeline().parameters.MasterPipelineRunID",
+															"type": "Expression"
+														},
+														"isDelete": {
+															"value": "@item().isDelete",
+															"type": "Expression"
+														},
+														"ProcessStepRunID": {
+															"value": "@pipeline().RunId",
+															"type": "Expression"
+														},
+														"dqDataSetId": {
+															"value": "@item().dqDataSetId",
+															"type": "Expression"
+														},
+														"isDQCheck": {
+															"value": "@item().isDQCheck",
+															"type": "Expression"
+														},
+														"runid": {
+															"value": "@item().runid",
+															"type": "Expression"
+														},
+														"StorageAccountURL": {
+															"value": "@item().tgtADLSUrl",
+															"type": "Expression"
+														},
+														"StorageAccountSecret": {
+															"value": "@item().tgtADLSKeySecret",
+															"type": "Expression"
+														},
+														"isHalt": {
+															"value": "@item().isDQHalt",
+															"type": "Expression"
+														},
+														"srcStalenessQuery": {
+															"value": "@item().srcStalenessQuery",
+															"type": "Expression"
+														},
+														"stalenessCheckAttribute": {
+															"value": "@item().stalenessCheckAttribute",
+															"type": "Expression"
+														},
+														"DataSetId": {
+															"value": "@item().datasetId",
+															"type": "Expression"
+														},
+														"isStalenessCheckRequired": {
+															"value": "@item().isStalenessCheckRequired",
+															"type": "Expression"
+														},
+														"connectionRetries": {
+															"value": "@item().connectionRetries",
+															"type": "Expression"
+														},
+														"srcDataSetName": {
+															"value": "@item().srcDataSetName",
+															"type": "Expression"
+														},
+														"switchType": {
+															"value": "@item().srcGroupType",
+															"type": "Expression"
+														},
+														"File_Switch_StorageType": {
+															"value": "@item().File_Switch_StorageType",
+															"type": "Expression"
+														},
+														"File_Switch_FormatType": {
+															"value": "@item().File_Switch_FormatType",
+															"type": "Expression"
+														},
+														"StorageAccountSpnId": {
+															"value": "@item().tgtADLSSpnId",
+															"type": "Expression"
+														},
+														"StorageAccountTenantId": {
+															"value": "@item().tgtADLSTenantId",
+															"type": "Expression"
+														},
+														"isMultiFolder": {
+															"value": "@item().isMultiFolder",
+															"type": "Expression"
+														},
+														"tgtType": {
+															"value": "@item().tgtType",
+															"type": "Expression"
+														},
+														"srcLinkedServiceName": {
+															"value": "@item().srcLinkedServiceName",
+															"type": "Expression"
+														},
+														"tgtLinkedServiceName": {
+															"value": "@item().tgtLinkedServiceName",
+															"type": "Expression"
+														}
+													}
+												}
+											},
+											{
+												"name": "Execute Ingestion type Success",
+												"type": "SqlServerStoredProcedure",
+												"dependsOn": [
+													{
+														"activity": "Execute Ingestion type",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"storedProcedureName": "[dbo].[UpdateIngestionProcessStatus]",
+													"storedProcedureParameters": {
+														"ErrorMessage": {
+															"value": null,
+															"type": "String"
+														},
+														"IngestionProcessID": {
+															"value": {
+																"value": "@item().IngestionProcessId",
+																"type": "Expression"
+															},
+															"type": "Int32"
+														},
+														"init": {
+															"value": "False",
+															"type": "Boolean"
+														},
+														"JobID": {
+															"value": {
+																"value": "@{pipeline().parameters.jobid}",
+																"type": "Expression"
+															},
+															"type": "Int32"
+														},
+														"LastUpdatedDateTime": {
+															"value": {
+																"value": "@utcnow()",
+																"type": "Expression"
+															},
+															"type": "Datetime"
+														},
+														"MasterPipelineRunID": {
+															"value": {
+																"value": "@pipeline().parameters.MasterPipelineRunID",
+																"type": "Expression"
+															},
+															"type": "Guid"
+														},
+														"ProcessID": {
+															"value": {
+																"value": "@item().processStepId",
+																"type": "Expression"
+															},
+															"type": "Int32"
+														},
+														"ProcessStepRunID": {
+															"value": {
+																"value": "@pipeline().RunId",
+																"type": "Expression"
+															},
+															"type": "Guid"
+														},
+														"Status": {
+															"value": "Succeeded",
+															"type": "String"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "LS_SQL_Azure_Platform_Config",
+													"type": "LinkedServiceReference"
+												}
+											},
+											{
+												"name": "Execute Ingestion type Failure",
+												"type": "SqlServerStoredProcedure",
+												"dependsOn": [
+													{
+														"activity": "Execute Ingestion type",
+														"dependencyConditions": [
+															"Failed"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"storedProcedureName": "[dbo].[UpdateIngestionProcessStatus]",
+													"storedProcedureParameters": {
+														"ErrorMessage": {
+															"value": {
+																"value": "@activity('Execute Ingestion type').error.message",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"IngestionProcessID": {
+															"value": {
+																"value": "@item().IngestionProcessId",
+																"type": "Expression"
+															},
+															"type": "Int32"
+														},
+														"init": {
+															"value": "False",
+															"type": "Boolean"
+														},
+														"JobID": {
+															"value": {
+																"value": "@{pipeline().parameters.jobid}",
+																"type": "Expression"
+															},
+															"type": "Int32"
+														},
+														"LastUpdatedDateTime": {
+															"value": {
+																"value": "@utcnow()",
+																"type": "Expression"
+															},
+															"type": "DateTime"
+														},
+														"MasterPipelineRunID": {
+															"value": {
+																"value": "@pipeline().parameters.MasterPipelineRunID",
+																"type": "Expression"
+															},
+															"type": "Guid"
+														},
+														"ProcessID": {
+															"value": {
+																"value": "@item().processStepId",
+																"type": "Expression"
+															},
+															"type": "Int32"
+														},
+														"ProcessStepRunID": {
+															"value": {
+																"value": "@pipeline().RunId",
+																"type": "Expression"
+															},
+															"type": "Guid"
+														},
+														"Status": {
+															"value": "Failed",
+															"type": "String"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "LS_SQL_Azure_Platform_Config",
+													"type": "LinkedServiceReference"
+												}
+											}
+										]
+									},
+									{
+										"value": "Process Ingestion And Execute PII Scrubbing",
+										"activities": [
+											{
+												"name": "Wait for 5 seconds",
+												"type": "Wait",
+												"dependsOn": [],
+												"userProperties": [],
+												"typeProperties": {
+													"waitTimeInSeconds": 1
+												}
+											}
+										]
+									}
+								]
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"Id": {
+				"type": "int"
+			},
+			"JobId": {
+				"type": "int"
+			},
+			"MasterPipelineRunID": {
+				"type": "string"
+			},
+			"SourceType": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "Sunil/ProcessSteps_sunil/Ingestion_sunil"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-09-25T03:43:15Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

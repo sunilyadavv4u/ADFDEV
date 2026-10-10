@@ -1,0 +1,34 @@
+{
+	"name": "LS_DBX_CSSBIPlatform",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"parameters": {
+			"ClusterId": {
+				"type": "string"
+			},
+			"WorkspaceUrl": {
+				"type": "string"
+			},
+			"KvPasswordSecret": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureDatabricks",
+		"typeProperties": {
+			"domain": "@linkedService().WorkspaceUrl",
+			"accessToken": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "LS_KV_CSSBIPlatform",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": {
+					"value": "@linkedService().KvPasswordSecret",
+					"type": "Expression"
+				}
+			},
+			"existingClusterId": "@linkedService().ClusterId"
+		}
+	}
+}

@@ -1,0 +1,6 @@
+{
+	"name": "HP-integation-runtime",
+	"properties": {
+		"type": "SelfHosted"
+	}
+}

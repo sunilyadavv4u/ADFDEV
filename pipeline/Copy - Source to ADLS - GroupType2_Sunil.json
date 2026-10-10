@@ -1,0 +1,621 @@
+{
+	"name": "Copy - Source to ADLS - GroupType2_Sunil",
+	"properties": {
+		"activities": [
+			{
+				"name": "Switch Ingestion Source Type",
+				"type": "Switch",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"on": {
+						"value": "@pipeline().parameters.srcType",
+						"type": "Expression"
+					},
+					"cases": [
+						{
+							"value": "File",
+							"activities": [
+								{
+									"name": "Copy File to ADLS",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "Copy - File to ADLS_Sunil",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"TargetContainer": {
+												"value": "@pipeline().parameters.tgtFileSystem",
+												"type": "Expression"
+											},
+											"TargetDirectory": {
+												"value": "@pipeline().parameters.tgtDirectory",
+												"type": "Expression"
+											},
+											"TargetFilename": {
+												"value": "@pipeline().parameters.tgtFileName",
+												"type": "Expression"
+											},
+											"JobId": {
+												"value": "@{pipeline().parameters.jobid}",
+												"type": "Expression"
+											},
+											"ProcessStepId": {
+												"value": "@pipeline().parameters.processStepId",
+												"type": "Expression"
+											},
+											"IngestionProcessId": {
+												"value": "@pipeline().parameters.IngestionProcessId",
+												"type": "Expression"
+											},
+											"ProcessStepRunId": {
+												"value": "@pipeline().parameters.ProcessStepRunID",
+												"type": "Expression"
+											},
+											"MasterPipelineRunID": {
+												"value": "@pipeline().parameters.MasterPipelineRunID",
+												"type": "Expression"
+											},
+											"ObjectName": {
+												"value": "@pipeline().parameters.srcName",
+												"type": "Expression"
+											},
+											"TenantId": {
+												"value": "@pipeline().parameters.tenantId",
+												"type": "Expression"
+											},
+											"runId": {
+												"value": "@pipeline().parameters.runid",
+												"type": "Expression"
+											},
+											"isActive": {
+												"value": "@pipeline().parameters.IsActive",
+												"type": "Expression"
+											},
+											"isHalt": {
+												"value": "@pipeline().parameters.isHalt",
+												"type": "Expression"
+											},
+											"ADBClusterId": {
+												"value": "@pipeline().parameters.ADBClusterId",
+												"type": "Expression"
+											},
+											"ADBWorkspaceUrl": {
+												"value": "@pipeline().parameters.ADBWorkspaceUrl",
+												"type": "Expression"
+											},
+											"ADBKvPasswordSecret": {
+												"value": "@pipeline().parameters.ADBKvPasswordSecret",
+												"type": "Expression"
+											},
+											"DataSetId": {
+												"value": "@pipeline().parameters.DataSetId",
+												"type": "Expression"
+											},
+											"sourceMountPath": {
+												"value": "@pipeline().parameters.fileSourceMountPath",
+												"type": "Expression"
+											},
+											"sourceFilePath": {
+												"value": "@pipeline().parameters.fileSourceFilePath",
+												"type": "Expression"
+											},
+											"sourceFileName": {
+												"value": "@pipeline().parameters.fileSourceFileName",
+												"type": "Expression"
+											},
+											"columnList": {
+												"value": "@pipeline().parameters.fileSrcColList",
+												"type": "Expression"
+											},
+											"fileFormat": {
+												"value": "@pipeline().parameters.fileFormat",
+												"type": "Expression"
+											},
+											"delimiter": {
+												"value": "@pipeline().parameters.fileDelimiter",
+												"type": "Expression"
+											},
+											"targetFileFormat": {
+												"value": "@pipeline().parameters.tgtFileFormat",
+												"type": "Expression"
+											},
+											"targetMountPath": {
+												"value": "@pipeline().parameters.fileTargetMountPath",
+												"type": "Expression"
+											},
+											"sourceServerName": {
+												"value": "@pipeline().parameters.srcServerName",
+												"type": "Expression"
+											},
+											"SourceDatabaseName": {
+												"value": "@pipeline().parameters.srcDatabaseName",
+												"type": "Expression"
+											},
+											"SourceUsername": {
+												"value": "@pipeline().parameters.kvUserNameSecret",
+												"type": "Expression"
+											},
+											"SourcePasswordKvSecretName": {
+												"value": "@pipeline().parameters.kvPasswordSecret",
+												"type": "Expression"
+											},
+											"StorageAccountURL": {
+												"value": "@pipeline().parameters.StorageAccountURL",
+												"type": "Expression"
+											},
+											"StorageAccountSecret": {
+												"value": "@pipeline().parameters.StorageAccountSecret",
+												"type": "Expression"
+											},
+											"srcProcessUsed": {
+												"value": "@pipeline().parameters.srcProcessUsed",
+												"type": "Expression"
+											},
+											"sourceContainer": {
+												"value": "@pipeline().parameters.sourceContainer",
+												"type": "Expression"
+											},
+											"File_Switch_StorageType": {
+												"value": "@pipeline().parameters.File_Switch_StorageType",
+												"type": "Expression"
+											},
+											"File_Switch_FormatType": {
+												"value": "@pipeline().parameters.File_Switch_FormatType",
+												"type": "Expression"
+											},
+											"StorageAccountSpnId": {
+												"value": "@pipeline().parameters.StorageAccountSpnId",
+												"type": "Expression"
+											},
+											"StorageAccountTenantId": {
+												"value": "@pipeline().parameters.StorageAccountTenantId",
+												"type": "Expression"
+											},
+											"isMultiFolder": {
+												"value": "@pipeline().parameters.isMultiFolder",
+												"type": "Expression"
+											},
+											"srcLinkedServiceName": {
+												"value": "@pipeline().parameters.srcLinkedServiceName",
+												"type": "Expression"
+											},
+											"tgtLinkedServiceName": {
+												"value": "@pipeline().parameters.tgtLinkedServiceName",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						},
+						{
+							"value": "Kusto",
+							"activities": [
+								{
+									"name": "Copy Kusto to ADLS",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "PL_Copy - Kusto to ADLS_Sunil",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"SourceServerName": {
+												"value": "@pipeline().parameters.srcServerName",
+												"type": "Expression"
+											},
+											"SourceDatabaseName": {
+												"value": "@pipeline().parameters.srcDatabaseName",
+												"type": "Expression"
+											},
+											"SourceQuery": {
+												"value": "@pipeline().parameters.srcQuery",
+												"type": "Expression"
+											},
+											"SourceUsername": {
+												"value": "@pipeline().parameters.kvUserNameSecret",
+												"type": "Expression"
+											},
+											"SourcePasswordKvSecretName": {
+												"value": "@pipeline().parameters.kvPasswordSecret",
+												"type": "Expression"
+											},
+											"TargetContainer": {
+												"value": "@pipeline().parameters.tgtFileSystem",
+												"type": "Expression"
+											},
+											"TargetDirectory": {
+												"value": "@pipeline().parameters.tgtDirectory",
+												"type": "Expression"
+											},
+											"TargetFilename": {
+												"value": "@pipeline().parameters.tgtFileName",
+												"type": "Expression"
+											},
+											"JobId": {
+												"value": "@{pipeline().parameters.jobid} ",
+												"type": "Expression"
+											},
+											"ProcessStepId": {
+												"value": "@pipeline().parameters.processStepId",
+												"type": "Expression"
+											},
+											"IngestionProcessId": {
+												"value": "@pipeline().parameters.IngestionProcessId",
+												"type": "Expression"
+											},
+											"ProcessStepRunId": {
+												"value": "@pipeline().parameters.ProcessStepRunID",
+												"type": "Expression"
+											},
+											"MasterPipelineRunID": {
+												"value": "@pipeline().parameters.MasterPipelineRunID",
+												"type": "Expression"
+											},
+											"ObjectName": {
+												"value": "@pipeline().parameters.srcName",
+												"type": "Expression"
+											},
+											"tgtMountPath": {
+												"value": "@pipeline().parameters.fileTargetMountPath",
+												"type": "Expression"
+											},
+											"tenantId": {
+												"value": "@pipeline().parameters.tenantid",
+												"type": "Expression"
+											},
+											"isDistributed": {
+												"value": "@pipeline().parameters.isDistributed",
+												"type": "Expression"
+											},
+											"isSpnAuth": {
+												"value": "@pipeline().parameters.IsSpnAuth",
+												"type": "Expression"
+											},
+											"StorageAccountURL": {
+												"value": "@pipeline().parameters.StorageAccountURL",
+												"type": "Expression"
+											},
+											"StorageAccountSecret": {
+												"value": "@pipeline().parameters.StorageAccountSecret",
+												"type": "Expression"
+											},
+											"srcProcessUsed": {
+												"value": "@pipeline().parameters.srcProcessUsed",
+												"type": "Expression"
+											},
+											"StorageAccountSpnId": {
+												"value": "@pipeline().parameters.StorageAccountSpnId",
+												"type": "Expression"
+											},
+											"StorageAccountTenantId": {
+												"value": "@pipeline().parameters.StorageAccountTenantId",
+												"type": "Expression"
+											}
+										}
+									}
+								},
+								{
+									"name": "Fail - Kusto Copy",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Copy Kusto to ADLS",
+											"dependencyConditions": [
+												"Failed"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "[dbo].[UpdateIngestionProcessStatus]",
+										"storedProcedureParameters": {
+											"status": {
+												"value": "Failed",
+												"type": "String"
+											},
+											"LastUpdatedDateTime": {
+												"value": {
+													"value": "@utcnow()",
+													"type": "Expression"
+												},
+												"type": "Datetime"
+											},
+											"JobID": {
+												"value": {
+													"value": "@{pipeline().parameters.jobid}",
+													"type": "Expression"
+												}
+											},
+											"init": {
+												"value": "False"
+											},
+											"ProcessID": {
+												"value": {
+													"value": "@pipeline().parameters.processStepId",
+													"type": "Expression"
+												}
+											},
+											"IngestionProcessID": {
+												"value": {
+													"value": "@pipeline().parameters.IngestionProcessId",
+													"type": "Expression"
+												}
+											},
+											"ErrorMessage": {
+												"value": {
+													"value": "@activity('Copy Kusto to ADLS').error.message",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"MasterPipelineRunID": {
+												"value": {
+													"value": "@pipeline().parameters.MasterPipelineRunID",
+													"type": "Expression"
+												},
+												"type": "Guid"
+											},
+											"ProcessStepRunID": {
+												"value": {
+													"value": "@pipeline().parameters.ProcessStepRunID",
+													"type": "Expression"
+												},
+												"type": "Guid"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "LS_SQL_Azure_Platform_Config",
+										"type": "LinkedServiceReference"
+									}
+								},
+								{
+									"name": "Raise Error SP Kusto",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Copy Kusto to ADLS",
+											"dependencyConditions": [
+												"Failed"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "[dbo].[usp_raise_error]",
+										"storedProcedureParameters": {
+											"Message": {
+												"value": {
+													"value": "@string(activity('Copy Kusto to ADLS').error)",
+													"type": "Expression"
+												},
+												"type": "String"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "LS_SQL_Azure_Platform_Config",
+										"type": "LinkedServiceReference"
+									}
+								}
+							]
+						},
+						{
+							"value": "AzureBlob",
+							"activities": [
+								{
+									"name": "Wait1",
+									"type": "Wait",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"waitTimeInSeconds": 1
+									}
+								}
+							]
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"IngestionProcessId": {
+				"type": "int"
+			},
+			"jobId": {
+				"type": "int"
+			},
+			"processStepId": {
+				"type": "int"
+			},
+			"srcName": {
+				"type": "string"
+			},
+			"srcType": {
+				"type": "string"
+			},
+			"srcQuery": {
+				"type": "string"
+			},
+			"srcProcessUsed": {
+				"type": "string"
+			},
+			"srcServerName": {
+				"type": "string"
+			},
+			"srcDatabaseName": {
+				"type": "string"
+			},
+			"tenantId": {
+				"type": "string"
+			},
+			"fileFormat": {
+				"type": "string"
+			},
+			"fileDelimiter": {
+				"type": "string"
+			},
+			"fileSourceMountPath": {
+				"type": "string"
+			},
+			"fileSourceFilePath": {
+				"type": "string"
+			},
+			"fileSourceFileName": {
+				"type": "string"
+			},
+			"fileTargetMountPath": {
+				"type": "string"
+			},
+			"kvUserNameSecret": {
+				"type": "string"
+			},
+			"kvPasswordSecret": {
+				"type": "string"
+			},
+			"tgtFileSystem": {
+				"type": "string"
+			},
+			"tgtDirectory": {
+				"type": "string"
+			},
+			"tgtFileName": {
+				"type": "string"
+			},
+			"tgtFileFormat": {
+				"type": "string"
+			},
+			"isDistributed": {
+				"type": "int"
+			},
+			"onFailureFailParent": {
+				"type": "int"
+			},
+			"IsActive": {
+				"type": "int"
+			},
+			"IsSpnAuth": {
+				"type": "string"
+			},
+			"AzSql_Auth_Replica": {
+				"type": "string"
+			},
+			"fileSrcColList": {
+				"type": "string"
+			},
+			"ADBClusterId": {
+				"type": "string"
+			},
+			"ADBWorkspaceUrl": {
+				"type": "string"
+			},
+			"ADBKvPasswordSecret": {
+				"type": "string"
+			},
+			"MasterPipelineRunID": {
+				"type": "string"
+			},
+			"isDelete": {
+				"type": "int"
+			},
+			"ProcessStepRunID": {
+				"type": "string"
+			},
+			"dqDataSetId": {
+				"type": "int"
+			},
+			"isDQCheck": {
+				"type": "string"
+			},
+			"runid": {
+				"type": "string"
+			},
+			"StorageAccountURL": {
+				"type": "string"
+			},
+			"StorageAccountSecret": {
+				"type": "string"
+			},
+			"isHalt": {
+				"type": "string"
+			},
+			"srcStalenessQuery": {
+				"type": "string"
+			},
+			"stalenessCheckAttribute": {
+				"type": "string"
+			},
+			"DataSetId": {
+				"type": "string"
+			},
+			"isStalenessCheckRequired": {
+				"type": "string"
+			},
+			"connectionRetries": {
+				"type": "string"
+			},
+			"srcDataSetName": {
+				"type": "string"
+			},
+			"File_Switch_StorageType": {
+				"type": "string"
+			},
+			"sourceContainer": {
+				"type": "string"
+			},
+			"File_Switch_FormatType": {
+				"type": "string"
+			},
+			"StorageAccountSpnId": {
+				"type": "string"
+			},
+			"StorageAccountTenantId": {
+				"type": "string"
+			},
+			"isMultiFolder": {
+				"type": "string"
+			},
+			"srcLinkedServiceName": {
+				"type": "string"
+			},
+			"tgtLinkedServiceName": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "Sunil/ProcessSteps_sunil/Ingestion_sunil"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-09-25T03:43:14Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

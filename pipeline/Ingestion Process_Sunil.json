@@ -1,0 +1,351 @@
+{
+	"name": "Ingestion Process_Sunil",
+	"properties": {
+		"activities": [
+			{
+				"name": "Ingestion Process",
+				"type": "Until",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@bool(variables('UntilFlag'))",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Wait for 30 Second",
+							"type": "Wait",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"waitTimeInSeconds": 30
+							}
+						},
+						{
+							"name": "Check For Active Objects",
+							"type": "Lookup",
+							"dependsOn": [
+								{
+									"activity": "Wait for 30 Second",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderStoredProcedureName": "[dbo].[batchCopyProcessviaSP]",
+									"storedProcedureParameters": {
+										"ID": {
+											"type": "Int32",
+											"value": {
+												"value": "@pipeline().parameters.Id",
+												"type": "Expression"
+											}
+										},
+										"JobId": {
+											"type": "Int32",
+											"value": {
+												"value": "@pipeline().parameters.JobId",
+												"type": "Expression"
+											}
+										},
+										"MasterPipelineRunID": {
+											"type": "Guid",
+											"value": {
+												"value": "@pipeline().parameters.MasterPipelineRunId",
+												"type": "Expression"
+											}
+										},
+										"ProcessName": {
+											"type": "String",
+											"value": "Ingestion"
+										},
+										"SourceType": {
+											"type": "String",
+											"value": null
+										},
+										"Type": {
+											"type": "String",
+											"value": "ActiveCount"
+										}
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "DS_Metadata",
+									"type": "DatasetReference"
+								}
+							}
+						},
+						{
+							"name": "End Loop",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Check For Active Objects",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "UntilFlag",
+								"value": "True"
+							}
+						},
+						{
+							"name": "Set Iteration value",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Check For Active Objects",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "IterationFlag",
+								"value": {
+									"value": "@activity('Check For Active Objects').output.firstRow.Flag",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Exit Loop",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Set Iteration value",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "UntilFlag",
+								"value": "True"
+							}
+						},
+						{
+							"name": "Batch Process SP",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Set Iteration value",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[batchCopyProcessviaSP]",
+								"storedProcedureParameters": {
+									"ID": {
+										"value": {
+											"value": "@pipeline().parameters.Id",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"JobId": {
+										"value": {
+											"value": "@pipeline().parameters.JobId",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"MasterPipelineRunID": {
+										"value": {
+											"value": "@pipeline().parameters.MasterPipelineRunId",
+											"type": "Expression"
+										},
+										"type": "Guid"
+									},
+									"ProcessName": {
+										"value": "Ingestion",
+										"type": "String"
+									},
+									"SourceType": {
+										"value": null,
+										"type": "String"
+									},
+									"Type": {
+										"value": "BatchProcess",
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_SQL_Azure_Platform_Config",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "End loop And Throw Error",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Batch Process SP",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "UntilFlag",
+								"value": "True"
+							}
+						},
+						{
+							"name": "Switch the Iteration",
+							"type": "Switch",
+							"dependsOn": [
+								{
+									"activity": "Batch Process SP",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"on": {
+									"value": "@if(equals(variables('IterationFlag'),'1'),'ContinueLoop','EndLoop') ",
+									"type": "Expression"
+								},
+								"cases": [
+									{
+										"value": "ContinueLoop",
+										"activities": [
+											{
+												"name": "Ingestion via Stored Procedure",
+												"type": "ExecutePipeline",
+												"dependsOn": [],
+												"policy": {
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"pipeline": {
+														"referenceName": "Ingestion Process by SourceType_Sunil",
+														"type": "PipelineReference"
+													},
+													"waitOnCompletion": false,
+													"parameters": {
+														"Id": {
+															"value": "@pipeline().parameters.Id",
+															"type": "Expression"
+														},
+														"JobId": {
+															"value": "@pipeline().parameters.JobId",
+															"type": "Expression"
+														},
+														"MasterPipelineRunID": {
+															"value": "@pipeline().parameters.MasterPipelineRunId",
+															"type": "Expression"
+														}
+													}
+												}
+											}
+										]
+									},
+									{
+										"value": "EndLoop",
+										"activities": [
+											{
+												"name": "End the Until Loop",
+												"type": "SetVariable",
+												"dependsOn": [],
+												"policy": {
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"variableName": "UntilFlag",
+													"value": "True"
+												}
+											}
+										]
+									}
+								]
+							}
+						}
+					],
+					"timeout": "7.00:00:00"
+				}
+			}
+		],
+		"parameters": {
+			"Id": {
+				"type": "int"
+			},
+			"JobId": {
+				"type": "int"
+			},
+			"MasterPipelineRunId": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"UntilFlag": {
+				"type": "String",
+				"defaultValue": "False"
+			},
+			"IterationFlag": {
+				"type": "String"
+			},
+			"ErrorVar": {
+				"type": "Boolean"
+			}
+		},
+		"folder": {
+			"name": "Sunil/ProcessSteps_sunil/Ingestion_sunil"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-09-25T03:43:16Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

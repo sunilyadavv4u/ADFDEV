@@ -1,0 +1,51 @@
+{
+	"name": "DS_ADLSgen2_parquet_MI",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_ADLSGen2_using_MI",
+			"type": "LinkedServiceReference",
+			"parameters": {
+				"serverfullpath": {
+					"value": "@dataset().srvername",
+					"type": "Expression"
+				}
+			}
+		},
+		"parameters": {
+			"srvername": {
+				"type": "string"
+			},
+			"containername": {
+				"type": "string"
+			},
+			"directory": {
+				"type": "string"
+			},
+			"filename": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": {
+					"value": "@dataset().filename",
+					"type": "Expression"
+				},
+				"folderPath": {
+					"value": "@dataset().directory",
+					"type": "Expression"
+				},
+				"fileSystem": {
+					"value": "@dataset().containername",
+					"type": "Expression"
+				}
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

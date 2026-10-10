@@ -1,0 +1,1089 @@
+{
+	"name": "Execute ADLS Gen2 Ingestion_Sunil",
+	"properties": {
+		"activities": [
+			{
+				"name": "Switch ADLS Gen2 file format",
+				"type": "Switch",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"on": {
+						"value": "@pipeline().parameters.File_Switch_FormatType",
+						"type": "Expression"
+					},
+					"cases": [
+						{
+							"value": "parquet-folders",
+							"activities": [
+								{
+									"name": "Copy parquet-folders to ADLS",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "ParquetSource",
+											"storeSettings": {
+												"type": "AzureBlobFSReadSettings",
+												"recursive": true,
+												"wildcardFolderPath": {
+													"value": "@replace(concat(pipeline().parameters.SourceDirectory,'/',pipeline().parameters.SourceFileName),'//','/')",
+													"type": "Expression"
+												},
+												"wildcardFileName": "*.parquet",
+												"enablePartitionDiscovery": false
+											},
+											"formatSettings": {
+												"type": "ParquetReadSettings"
+											}
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "DS_ADLSV2_Parquet_SPN",
+											"type": "DatasetReference",
+											"parameters": {
+												"url": {
+													"value": "@pipeline().parameters.SourceServerName",
+													"type": "Expression"
+												},
+												"servicePrincipalId": {
+													"value": "@pipeline().parameters.SourceUsername",
+													"type": "Expression"
+												},
+												"secretName": {
+													"value": "@pipeline().parameters.SourcePasswordKvSecretName",
+													"type": "Expression"
+												},
+												"tenant": {
+													"value": "@pipeline().parameters.tenantId",
+													"type": "Expression"
+												},
+												"Container": {
+													"value": "@pipeline().parameters.SourceContainer",
+													"type": "Expression"
+												},
+												"Directory": {
+													"value": "@pipeline().parameters.SourceDirectory",
+													"type": "Expression"
+												},
+												"FileName": {
+													"value": "@pipeline().parameters.SourceFileName",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DS_ADLSV2_Parquet_folders",
+											"type": "DatasetReference",
+											"parameters": {
+												"Container": {
+													"value": "@pipeline().parameters.TargetContainer",
+													"type": "Expression"
+												},
+												"Directory": {
+													"value": "@pipeline().parameters.TargetDirectory",
+													"type": "Expression"
+												},
+												"FileName": {
+													"value": "@pipeline().parameters.TargetFilename",
+													"type": "Expression"
+												},
+												"StorageAccountURL": {
+													"value": "@pipeline().parameters.StorageAccountURL",
+													"type": "Expression"
+												},
+												"StorageKeySecret": {
+													"value": "@pipeline().parameters.StorageAccountSecret",
+													"type": "Expression"
+												},
+												"StorageAccountSpnId": {
+													"value": "@pipeline().parameters.StorageAccountSpnId",
+													"type": "Expression"
+												},
+												"StorageAccountTenantId": {
+													"value": "@pipeline().parameters.StorageAccountTenantId",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Update Ingestion Metrics - File parquet-foldersv2 ADF",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Copy parquet-folders to ADLS",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "[dbo].[usp_UpdateIngestionMetrics]",
+										"storedProcedureParameters": {
+											"copyDurationInSeconds": {
+												"value": {
+													"value": "@activity('Copy parquet-folders to ADLS').output.copyDuration",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"dataRead": {
+												"value": {
+													"value": "@activity('Copy parquet-folders to ADLS').output.dataRead",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"dataWritten": {
+												"value": {
+													"value": "@activity('Copy parquet-folders to ADLS').output.dataWritten",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"id": {
+												"value": {
+													"value": "@pipeline().parameters.IngestionProcessId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"jobId": {
+												"value": {
+													"value": "@pipeline().parameters.JobId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"MasterPipelineRunId": {
+												"value": {
+													"value": "@pipeline().parameters.MasterPipelineRunID",
+													"type": "Expression"
+												},
+												"type": "Guid"
+											},
+											"processStepId": {
+												"value": {
+													"value": "@pipeline().parameters.ProcessStepId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"rowsCopied": {
+												"value": null,
+												"type": "Int64"
+											},
+											"rowsRead": {
+												"value": null,
+												"type": "Int64"
+											},
+											"throughput": {
+												"value": {
+													"value": "@activity('Copy parquet-folders to ADLS').output.throughput",
+													"type": "Expression"
+												},
+												"type": "Decimal"
+											},
+											"usedDataIntegrationUnits": {
+												"value": {
+													"value": "@activity('Copy parquet-folders to ADLS').output.usedDataIntegrationUnits",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"usedParallelCopies": {
+												"value": {
+													"value": "@activity('Copy parquet-folders to ADLS').output.usedParallelCopies",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"copyDurationInQueue": {
+												"value": {
+													"value": "@activity('Copy parquet-folders to ADLS').output.executiondetails[0].profile.queue.duration\n",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"copyDurationInTransfer": {
+												"value": {
+													"value": "@activity('Copy parquet-folders to ADLS').output.executiondetails[0].profile.transfer.duration",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "LS_SQL_Azure_Platform_Config",
+										"type": "LinkedServiceReference"
+									}
+								}
+							]
+						},
+						{
+							"value": "tsv",
+							"activities": [
+								{
+									"name": "Copy tsv to ADLS",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "DelimitedTextSource",
+											"storeSettings": {
+												"type": "AzureBlobFSReadSettings",
+												"recursive": true,
+												"enablePartitionDiscovery": false
+											},
+											"formatSettings": {
+												"type": "DelimitedTextReadSettings"
+											}
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "DS_ADLSV2_TSV_SPN",
+											"type": "DatasetReference",
+											"parameters": {
+												"url": {
+													"value": "@pipeline().parameters.SourceServerName",
+													"type": "Expression"
+												},
+												"servicePrincipalId": {
+													"value": "@pipeline().parameters.SourceUsername",
+													"type": "Expression"
+												},
+												"secretName": {
+													"value": "@pipeline().parameters.SourcePasswordKvSecretName",
+													"type": "Expression"
+												},
+												"tenant": {
+													"value": "@pipeline().parameters.tenantId",
+													"type": "Expression"
+												},
+												"Container": {
+													"value": "@pipeline().parameters.SourceContainer",
+													"type": "Expression"
+												},
+												"Directory": {
+													"value": "@pipeline().parameters.SourceDirectory",
+													"type": "Expression"
+												},
+												"FileName": {
+													"value": "@pipeline().parameters.SourceFileName",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DS_ADLSV2_Parquet",
+											"type": "DatasetReference",
+											"parameters": {
+												"Container": {
+													"value": "@pipeline().parameters.TargetContainer",
+													"type": "Expression"
+												},
+												"Directory": {
+													"value": "@pipeline().parameters.TargetDirectory",
+													"type": "Expression"
+												},
+												"FileName": {
+													"value": "@pipeline().parameters.TargetFilename",
+													"type": "Expression"
+												},
+												"StorageAccountURL": {
+													"value": "@pipeline().parameters.StorageAccountURL",
+													"type": "Expression"
+												},
+												"StorageKeySecret": {
+													"value": "@pipeline().parameters.StorageAccountSecret",
+													"type": "Expression"
+												},
+												"StorageAccountSpnId": {
+													"value": "@pipeline().parameters.StorageAccountSpnId",
+													"type": "Expression"
+												},
+												"StorageAccountTenantId": {
+													"value": "@pipeline().parameters.StorageAccountTenantId",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Update Ingestion Metrics - File tsv ADF",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Copy tsv to ADLS",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "[dbo].[usp_UpdateIngestionMetrics]",
+										"storedProcedureParameters": {
+											"copyDurationInSeconds": {
+												"value": {
+													"value": "@activity('Copy tsv to ADLS').output.copyDuration",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"dataRead": {
+												"value": {
+													"value": "@activity('Copy tsv to ADLS').output.dataRead",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"dataWritten": {
+												"value": {
+													"value": "@activity('Copy tsv to ADLS').output.dataWritten",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"id": {
+												"value": {
+													"value": "@pipeline().parameters.IngestionProcessId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"jobId": {
+												"value": {
+													"value": "@pipeline().parameters.JobId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"MasterPipelineRunId": {
+												"value": {
+													"value": "@pipeline().parameters.MasterPipelineRunID",
+													"type": "Expression"
+												},
+												"type": "Guid"
+											},
+											"processStepId": {
+												"value": {
+													"value": "@pipeline().parameters.ProcessStepId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"rowsCopied": {
+												"value": {
+													"value": "@activity('Copy tsv to ADLS').output.rowsCopied",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"rowsRead": {
+												"value": {
+													"value": "@activity('Copy tsv to ADLS').output.rowsRead",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"throughput": {
+												"value": {
+													"value": "@activity('Copy tsv to ADLS').output.throughput",
+													"type": "Expression"
+												},
+												"type": "Decimal"
+											},
+											"usedDataIntegrationUnits": {
+												"value": {
+													"value": "@activity('Copy tsv to ADLS').output.usedDataIntegrationUnits",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"usedParallelCopies": {
+												"value": {
+													"value": "@activity('Copy tsv to ADLS').output.usedParallelCopies",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"copyDurationInQueue": {
+												"value": {
+													"value": "@activity('Copy tsv to ADLS').output.executiondetails[0].profile.queue.duration\n",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"copyDurationInTransfer": {
+												"value": {
+													"value": "@activity('Copy tsv to ADLS').output.executiondetails[0].profile.transfer.duration",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "LS_SQL_Azure_Platform_Config",
+										"type": "LinkedServiceReference"
+									}
+								}
+							]
+						},
+						{
+							"value": "csv",
+							"activities": [
+								{
+									"name": "Copy csv to ADLS",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "DelimitedTextSource",
+											"storeSettings": {
+												"type": "AzureBlobFSReadSettings",
+												"recursive": true,
+												"enablePartitionDiscovery": false
+											},
+											"formatSettings": {
+												"type": "DelimitedTextReadSettings"
+											}
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "DS_ADLSV2_CSV_SPN",
+											"type": "DatasetReference",
+											"parameters": {
+												"url": {
+													"value": "@pipeline().parameters.SourceServerName",
+													"type": "Expression"
+												},
+												"servicePrincipalId": {
+													"value": "@pipeline().parameters.SourceUsername",
+													"type": "Expression"
+												},
+												"secretName": {
+													"value": "@pipeline().parameters.SourcePasswordKvSecretName",
+													"type": "Expression"
+												},
+												"tenant": {
+													"value": "@pipeline().parameters.tenantId",
+													"type": "Expression"
+												},
+												"Container": {
+													"value": "@pipeline().parameters.SourceContainer",
+													"type": "Expression"
+												},
+												"Directory": {
+													"value": "@pipeline().parameters.SourceDirectory",
+													"type": "Expression"
+												},
+												"FileName": {
+													"value": "@pipeline().parameters.SourceFileName",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DS_ADLSV2_Parquet",
+											"type": "DatasetReference",
+											"parameters": {
+												"Container": {
+													"value": "@pipeline().parameters.TargetContainer",
+													"type": "Expression"
+												},
+												"Directory": {
+													"value": "@pipeline().parameters.TargetDirectory",
+													"type": "Expression"
+												},
+												"FileName": {
+													"value": "@pipeline().parameters.TargetFilename",
+													"type": "Expression"
+												},
+												"StorageAccountURL": {
+													"value": "@pipeline().parameters.StorageAccountURL",
+													"type": "Expression"
+												},
+												"StorageKeySecret": {
+													"value": "@pipeline().parameters.StorageAccountSecret",
+													"type": "Expression"
+												},
+												"StorageAccountSpnId": {
+													"value": "@pipeline().parameters.StorageAccountSpnId",
+													"type": "Expression"
+												},
+												"StorageAccountTenantId": {
+													"value": "@pipeline().parameters.StorageAccountTenantId",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Update Ingestion Metrics - File csv ADF",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Copy csv to ADLS",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "[dbo].[usp_UpdateIngestionMetrics]",
+										"storedProcedureParameters": {
+											"copyDurationInSeconds": {
+												"value": {
+													"value": "@activity('Copy csv to ADLS').output.copyDuration",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"dataRead": {
+												"value": {
+													"value": "@activity('Copy csv to ADLS').output.dataRead",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"dataWritten": {
+												"value": {
+													"value": "@activity('Copy csv to ADLS').output.dataWritten",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"id": {
+												"value": {
+													"value": "@pipeline().parameters.IngestionProcessId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"jobId": {
+												"value": {
+													"value": "@pipeline().parameters.JobId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"MasterPipelineRunId": {
+												"value": {
+													"value": "@pipeline().parameters.MasterPipelineRunID",
+													"type": "Expression"
+												},
+												"type": "Guid"
+											},
+											"processStepId": {
+												"value": {
+													"value": "@pipeline().parameters.ProcessStepId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"rowsCopied": {
+												"value": {
+													"value": "@activity('Copy csv to ADLS').output.rowsCopied",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"rowsRead": {
+												"value": {
+													"value": "@activity('Copy csv to ADLS').output.rowsRead",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"throughput": {
+												"value": {
+													"value": "@activity('Copy csv to ADLS').output.throughput",
+													"type": "Expression"
+												},
+												"type": "Decimal"
+											},
+											"usedDataIntegrationUnits": {
+												"value": {
+													"value": "@activity('Copy csv to ADLS').output.usedDataIntegrationUnits",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"usedParallelCopies": {
+												"value": {
+													"value": "@activity('Copy csv to ADLS').output.usedParallelCopies",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"copyDurationInQueue": {
+												"value": {
+													"value": "@activity('Copy csv to ADLS').output.executiondetails[0].profile.queue.duration\n",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"copyDurationInTransfer": {
+												"value": {
+													"value": "@activity('Copy csv to ADLS').output.executiondetails[0].profile.transfer.duration",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "LS_SQL_Azure_Platform_Config",
+										"type": "LinkedServiceReference"
+									}
+								}
+							]
+						},
+						{
+							"value": "parquet-files",
+							"activities": [
+								{
+									"name": "Copy parquet-files to ADLS",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "ParquetSource",
+											"storeSettings": {
+												"type": "AzureBlobFSReadSettings",
+												"recursive": true,
+												"enablePartitionDiscovery": false
+											},
+											"formatSettings": {
+												"type": "ParquetReadSettings"
+											}
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "DS_ADLSV2_Parquet_SPN",
+											"type": "DatasetReference",
+											"parameters": {
+												"url": {
+													"value": "@pipeline().parameters.SourceServerName",
+													"type": "Expression"
+												},
+												"servicePrincipalId": {
+													"value": "@pipeline().parameters.SourceUsername",
+													"type": "Expression"
+												},
+												"secretName": {
+													"value": "@pipeline().parameters.SourcePasswordKvSecretName",
+													"type": "Expression"
+												},
+												"tenant": {
+													"value": "@pipeline().parameters.tenantId",
+													"type": "Expression"
+												},
+												"Container": {
+													"value": "@pipeline().parameters.SourceContainer",
+													"type": "Expression"
+												},
+												"Directory": {
+													"value": "@pipeline().parameters.SourceDirectory",
+													"type": "Expression"
+												},
+												"FileName": {
+													"value": "@pipeline().parameters.SourceFileName",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DS_ADLSV2_Parquet",
+											"type": "DatasetReference",
+											"parameters": {
+												"Container": {
+													"value": "@pipeline().parameters.TargetContainer",
+													"type": "Expression"
+												},
+												"Directory": {
+													"value": "@pipeline().parameters.TargetDirectory",
+													"type": "Expression"
+												},
+												"FileName": {
+													"value": "@pipeline().parameters.TargetFilename",
+													"type": "Expression"
+												},
+												"StorageAccountURL": {
+													"value": "@pipeline().parameters.StorageAccountURL",
+													"type": "Expression"
+												},
+												"StorageKeySecret": {
+													"value": "@pipeline().parameters.StorageAccountSecret",
+													"type": "Expression"
+												},
+												"StorageAccountSpnId": {
+													"value": "@pipeline().parameters.StorageAccountSpnId",
+													"type": "Expression"
+												},
+												"StorageAccountTenantId": {
+													"value": "@pipeline().parameters.StorageAccountTenantId",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Update Ingestion Metrics - File parquet-filesv2 ADF",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Copy parquet-files to ADLS",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "[dbo].[usp_UpdateIngestionMetrics]",
+										"storedProcedureParameters": {
+											"copyDurationInSeconds": {
+												"value": {
+													"value": "@activity('Copy parquet-files to ADLS').output.copyDuration",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"dataRead": {
+												"value": {
+													"value": "@activity('Copy parquet-files to ADLS').output.dataRead",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"dataWritten": {
+												"value": {
+													"value": "@activity('Copy parquet-files to ADLS').output.dataWritten",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"id": {
+												"value": {
+													"value": "@pipeline().parameters.IngestionProcessId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"jobId": {
+												"value": {
+													"value": "@pipeline().parameters.JobId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"MasterPipelineRunId": {
+												"value": {
+													"value": "@pipeline().parameters.MasterPipelineRunID",
+													"type": "Expression"
+												},
+												"type": "Guid"
+											},
+											"processStepId": {
+												"value": {
+													"value": "@pipeline().parameters.ProcessStepId",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"rowsCopied": {
+												"value": null,
+												"type": "Int64"
+											},
+											"rowsRead": {
+												"value": null,
+												"type": "Int64"
+											},
+											"throughput": {
+												"value": {
+													"value": "@activity('Copy parquet-files to ADLS').output.throughput",
+													"type": "Expression"
+												},
+												"type": "Decimal"
+											},
+											"usedDataIntegrationUnits": {
+												"value": {
+													"value": "@activity('Copy parquet-files to ADLS').output.usedDataIntegrationUnits",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"usedParallelCopies": {
+												"value": {
+													"value": "@activity('Copy parquet-files to ADLS').output.usedParallelCopies",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"copyDurationInQueue": {
+												"value": {
+													"value": "@activity('Copy parquet-files to ADLS').output.executiondetails[0].profile.queue.duration\n",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											},
+											"copyDurationInTransfer": {
+												"value": {
+													"value": "@activity('Copy parquet-files to ADLS').output.executiondetails[0].profile.transfer.duration",
+													"type": "Expression"
+												},
+												"type": "Int32"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "LS_SQL_Azure_Platform_Config",
+										"type": "LinkedServiceReference"
+									}
+								}
+							]
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"SourceServerName": {
+				"type": "string"
+			},
+			"SourceDatabaseName": {
+				"type": "string"
+			},
+			"SourceUsername": {
+				"type": "string"
+			},
+			"SourcePasswordKvSecretName": {
+				"type": "string"
+			},
+			"TargetContainer": {
+				"type": "string"
+			},
+			"TargetDirectory": {
+				"type": "string"
+			},
+			"TargetFilename": {
+				"type": "string"
+			},
+			"JobId": {
+				"type": "string"
+			},
+			"ProcessStepId": {
+				"type": "string"
+			},
+			"IngestionProcessId": {
+				"type": "string"
+			},
+			"ProcessStepRunId": {
+				"type": "string"
+			},
+			"MasterPipelineRunID": {
+				"type": "string"
+			},
+			"ObjectName": {
+				"type": "string"
+			},
+			"tgtMountPath": {
+				"type": "string"
+			},
+			"tenantId": {
+				"type": "string"
+			},
+			"StorageAccountURL": {
+				"type": "string"
+			},
+			"StorageAccountSecret": {
+				"type": "string"
+			},
+			"SourceDirectory": {
+				"type": "string"
+			},
+			"SourceFileName": {
+				"type": "string"
+			},
+			"SourceContainer": {
+				"type": "string"
+			},
+			"fileFormat": {
+				"type": "string"
+			},
+			"File_Switch_FormatType": {
+				"type": "string"
+			},
+			"StorageAccountSpnId": {
+				"type": "string"
+			},
+			"StorageAccountTenantId": {
+				"type": "string"
+			},
+			"isMultiFolder": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "Sunil/ProcessSteps_sunil/Ingestion_sunil"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-09-25T03:43:13Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

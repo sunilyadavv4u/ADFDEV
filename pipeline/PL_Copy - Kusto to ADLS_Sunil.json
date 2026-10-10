@@ -1,0 +1,594 @@
+{
+	"name": "PL_Copy - Kusto to ADLS_Sunil",
+	"properties": {
+		"activities": [
+			{
+				"name": "Started Copying",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[UpdateIngestionProcessStatus]",
+					"storedProcedureParameters": {
+						"ErrorMessage": {
+							"value": null,
+							"type": "String"
+						},
+						"IngestionProcessID": {
+							"value": {
+								"value": "@pipeline().parameters.IngestionProcessId",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"IngestionRunID": {
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
+							"type": "Guid"
+						},
+						"init": {
+							"value": "False",
+							"type": "Boolean"
+						},
+						"JobID": {
+							"value": {
+								"value": "@{pipeline().parameters.jobid}",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"LastUpdatedDateTime": {
+							"value": {
+								"value": "@utcnow()",
+								"type": "Expression"
+							},
+							"type": "Datetime"
+						},
+						"MasterPipelineRunID": {
+							"value": {
+								"value": "@pipeline().parameters.MasterPipelineRunID",
+								"type": "Expression"
+							},
+							"type": "Guid"
+						},
+						"ProcessID": {
+							"value": {
+								"value": "@pipeline().parameters.ProcessStepId",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"ProcessStepRunID": {
+							"value": {
+								"value": "@pipeline().parameters.ProcessStepRunId",
+								"type": "Expression"
+							},
+							"type": "Guid"
+						},
+						"Status": {
+							"value": "In Progress",
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_SQL_Azure_Platform_Config",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Get Cluster Details",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Started Copying",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "select ClusterId,WorkspaceUrl, kvPasswordSecret from metadata.Tbl_dataSystem \n where srcType='DataBricksCluster' and SystemName='ADB_CSSBIPlatform_Ingestion'\n",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_Metadata",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "If To Execute in ADF",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Get Cluster Details",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(pipeline().parameters.srcProcessUsed,'ADF')",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Copy data from Kusto to ADLS User Auth",
+							"type": "DatabricksNotebook",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"notebookPath": "/Users/v-suniyadav_jit@prdtrs01.prod.outlook.com/ProjectLearning/KustoIngestion/Kustoconnector",
+								"baseParameters": {
+									"srcServerName": {
+										"value": "@pipeline().parameters.SourceServerName",
+										"type": "Expression"
+									},
+									"srcDatabaseName": {
+										"value": "@pipeline().parameters.SourceDatabaseName",
+										"type": "Expression"
+									},
+									"srcQuery": {
+										"value": "@pipeline().parameters.SourceQuery",
+										"type": "Expression"
+									},
+									"deltaColumn": " ",
+									"LastModifiedDate": " ",
+									"tgtMountPath": {
+										"value": "@pipeline().parameters.tgtMountPath",
+										"type": "Expression"
+									},
+									"tgtdirectory": {
+										"value": "@pipeline().parameters.TargetDirectory",
+										"type": "Expression"
+									},
+									"tgtFile": {
+										"value": "@pipeline().parameters.TargetFilename",
+										"type": "Expression"
+									},
+									"srcClientIdSecret": {
+										"value": "@pipeline().parameters.SourceUsername",
+										"type": "Expression"
+									},
+									"srcClientKeySecret": {
+										"value": "@pipeline().parameters.SourcePasswordKvSecretName",
+										"type": "Expression"
+									},
+									"tenantId": {
+										"value": "@pipeline().parameters.tenantId",
+										"type": "Expression"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_DBX_CSSBIPlatform",
+								"type": "LinkedServiceReference",
+								"parameters": {
+									"ClusterId": "@activity('Get Cluster Details').output.firstRow.ClusterId",
+									"WorkspaceUrl": "@activity('Get Cluster Details').output.firstRow.WorkspaceUrl",
+									"KvPasswordSecret": "@activity('Get Cluster Details').output.firstRow.KvPasswordSecret"
+								}
+							}
+						},
+						{
+							"name": "Update Ingestion Metrics - Kusto ADB",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Copy data from Kusto to ADLS User Auth",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[usp_UpdateIngestionMetrics]",
+								"storedProcedureParameters": {
+									"copyDurationInSeconds": {
+										"value": {
+											"value": "@activity('Copy data from Kusto to ADLS User Auth').output.executionDuration",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"dataRead": {
+										"value": null,
+										"type": "Int64"
+									},
+									"dataWritten": {
+										"value": {
+											"value": "@int(split(activity('Copy data from Kusto to ADLS User Auth').output.runOutput,';')[1])",
+											"type": "Expression"
+										},
+										"type": "Int64"
+									},
+									"id": {
+										"value": {
+											"value": "@pipeline().parameters.IngestionProcessId",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"jobId": {
+										"value": {
+											"value": "@pipeline().parameters.JobId",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"MasterPipelineRunId": {
+										"value": {
+											"value": "@pipeline().parameters.MasterPipelineRunID",
+											"type": "Expression"
+										},
+										"type": "Guid"
+									},
+									"processStepId": {
+										"value": {
+											"value": "@pipeline().parameters.ProcessStepId",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"rowsCopied": {
+										"value": {
+											"value": "@int(split(activity('Copy data from Kusto to ADLS User Auth').output.runOutput,';')[0])",
+											"type": "Expression"
+										},
+										"type": "Int64"
+									},
+									"rowsRead": {
+										"value": null,
+										"type": "Int64"
+									},
+									"throughput": {
+										"value": null,
+										"type": "Decimal"
+									},
+									"usedDataIntegrationUnits": {
+										"value": null,
+										"type": "Int32"
+									},
+									"usedParallelCopies": {
+										"value": null,
+										"type": "Int32"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_SQL_Azure_Platform_Config",
+								"type": "LinkedServiceReference"
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "Copy data from Kusto to ADLS",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureDataExplorerSource",
+									"query": {
+										"value": "@pipeline().parameters.SourceQuery",
+										"type": "Expression"
+									},
+									"queryTimeout": "01:00:00",
+									"noTruncation": true
+								},
+								"sink": {
+									"type": "ParquetSink",
+									"storeSettings": {
+										"type": "AzureBlobFSWriteSettings"
+									},
+									"formatSettings": {
+										"type": "ParquetWriteSettings"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "DS_AzureDataExplorer",
+									"type": "DatasetReference",
+									"parameters": {
+										"Kustoserver": {
+											"value": "@pipeline().parameters.SourceServerName",
+											"type": "Expression"
+										},
+										"KustoDatabase": {
+											"value": "@pipeline().parameters.SourceDatabaseName",
+											"type": "Expression"
+										},
+										"ServicePrincipalId": {
+											"value": "@pipeline().parameters.SourceUsername",
+											"type": "Expression"
+										},
+										"ServicePrincipalSecret": {
+											"value": "@pipeline().parameters.SourcePasswordKvSecretName",
+											"type": "Expression"
+										},
+										"TenantId": "@pipeline().parameters.tenantId"
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "DS_ADLSV2_Parquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"Container": "@pipeline().parameters.TargetContainer",
+										"Directory": "@pipeline().parameters.TargetDirectory",
+										"FileName": "@pipeline().parameters.TargetFilename",
+										"StorageAccountURL": "@pipeline().parameters.StorageAccountURL",
+										"StorageKeySecret": "@pipeline().parameters.StorageAccountSecret",
+										"StorageAccountSpnId": "@pipeline().parameters.StorageAccountSpnId",
+										"StorageAccountTenantId": "@pipeline().parameters.StorageAccountTenantId"
+									}
+								}
+							]
+						},
+						{
+							"name": "Update Ingestion Metrics - Kusto ADF",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Copy data from Kusto to ADLS",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[usp_UpdateIngestionMetrics]",
+								"storedProcedureParameters": {
+									"copyDurationInQueue": {
+										"value": {
+											"value": "@activity('Copy data from Kusto to ADLS').output.executiondetails[0].profile.queue.duration",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"copyDurationInSeconds": {
+										"value": {
+											"value": "@activity('Copy data from Kusto to ADLS').output.copyDuration",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"copyDurationInTransfer": {
+										"value": {
+											"value": "@activity('Copy data from Kusto to ADLS').output.executiondetails[0].profile.transfer.duration",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"dataRead": {
+										"value": {
+											"value": "@activity('Copy data from Kusto to ADLS').output.dataRead",
+											"type": "Expression"
+										},
+										"type": "Int64"
+									},
+									"dataWritten": {
+										"value": {
+											"value": "@activity('Copy data from Kusto to ADLS').output.dataWritten",
+											"type": "Expression"
+										},
+										"type": "Int64"
+									},
+									"id": {
+										"value": {
+											"value": "@pipeline().parameters.IngestionProcessId",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"jobId": {
+										"value": {
+											"value": "@pipeline().parameters.JobId",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"MasterPipelineRunId": {
+										"value": {
+											"value": "@pipeline().parameters.MasterPipelineRunID",
+											"type": "Expression"
+										},
+										"type": "Guid"
+									},
+									"processStepId": {
+										"value": {
+											"value": "@pipeline().parameters.ProcessStepId",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"rowsCopied": {
+										"value": {
+											"value": "@activity('Copy data from Kusto to ADLS').output.rowsCopied",
+											"type": "Expression"
+										},
+										"type": "Int64"
+									},
+									"rowsRead": {
+										"value": {
+											"value": "@activity('Copy data from Kusto to ADLS').output.rowsRead",
+											"type": "Expression"
+										},
+										"type": "Int64"
+									},
+									"throughput": {
+										"value": {
+											"value": "@activity('Copy data from Kusto to ADLS').output.throughput",
+											"type": "Expression"
+										},
+										"type": "Decimal"
+									},
+									"usedDataIntegrationUnits": {
+										"value": {
+											"value": "@activity('Copy data from Kusto to ADLS').output.usedDataIntegrationUnits",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"usedParallelCopies": {
+										"value": {
+											"value": "@activity('Copy data from Kusto to ADLS').output.usedParallelCopies",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_SQL_Azure_Platform_Config",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"SourceServerName": {
+				"type": "string"
+			},
+			"SourceDatabaseName": {
+				"type": "string"
+			},
+			"SourceQuery": {
+				"type": "string"
+			},
+			"SourceUsername": {
+				"type": "string"
+			},
+			"SourcePasswordKvSecretName": {
+				"type": "string"
+			},
+			"TargetContainer": {
+				"type": "string"
+			},
+			"TargetDirectory": {
+				"type": "string"
+			},
+			"TargetFilename": {
+				"type": "string"
+			},
+			"JobId": {
+				"type": "string"
+			},
+			"ProcessStepId": {
+				"type": "string"
+			},
+			"IngestionProcessId": {
+				"type": "string"
+			},
+			"ProcessStepRunId": {
+				"type": "string"
+			},
+			"MasterPipelineRunID": {
+				"type": "string"
+			},
+			"ObjectName": {
+				"type": "string"
+			},
+			"tgtMountPath": {
+				"type": "string"
+			},
+			"tenantId": {
+				"type": "string"
+			},
+			"isDistributed": {
+				"type": "string"
+			},
+			"isSpnAuth": {
+				"type": "string"
+			},
+			"StorageAccountURL": {
+				"type": "string"
+			},
+			"StorageAccountSecret": {
+				"type": "string"
+			},
+			"srcProcessUsed": {
+				"type": "string"
+			},
+			"StorageAccountSpnId": {
+				"type": "string"
+			},
+			"StorageAccountTenantId": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "Sunil/ProcessSteps_sunil/Ingestion_sunil"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-09-25T03:43:13Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}
